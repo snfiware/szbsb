@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">SzBsb</string>
+    <string name="tab_text_1">Login</string>
+    <string name="tab_text_2">Rubriken</string>
+    <string name="tab_text_3">Seiten</string>
+
+    <string name="title_activity_fullscreen">PDF(s)</string>
+    <string name="dummy_button">Dummy Button</string>
+    <string name="dummy_content">DUMMY\nCONTENT</string>
+    <string-array name="dummy_array_page">
+        <item>Pdf-Name</item>
+    </string-array>
+    <string-array name="dummy_array_date">
+        <item>Download-Datum</item>
+    </string-array>
+</resources>

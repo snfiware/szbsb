@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/fullscreen_frame"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0099cc"
+    tools:context="de.snfiware.szbsb.fullscrn.FullscreenActivity">
+
+    <!-- The primary full-screen view. This can be replaced with whatever view
+         is needed to present your content, e.g. VideoView, SurfaceView,
+         TextureView, etc. -->
+
+    <de.snfiware.szbsb.fullscrn.MyPdfView
+        android:id="@+id/fullscreen_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:keepScreenOn="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <FrameLayout
+                android:id="@+id/sz_fullscreen_content_controls"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:alpha="0.9"
+                android:background="@android:color/darker_gray"
+                android:fitsSystemWindows="false">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="15dip">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center|center_horizontal|center_vertical"
+                        android:foregroundGravity="center"
+                        android:gravity="center"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/buttonFullScrnDatumLinks"
+                            android:layout_width="48dip"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:width="48dip"
+                            android:foregroundGravity="center"
+                            android:gravity="center"
+                            android:insetLeft="0dp"
+                            android:insetRight="6dp"
+                            android:maxWidth="48dip"
+                            android:minWidth="48dip"
+                            app:icon="@android:drawable/ic_media_rew"
+                            app:iconGravity="textStart"
+                            app:iconPadding="4dp" />
+
+                        <ImageView
+                            android:id="@+id/imageViewDatum"
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
+                            android:layout_marginStart="-3dp"
+                            android:layout_marginTop="1dp"
+                            android:layout_marginEnd="-4dp"
+                            android:layout_weight="1"
+                            android:alpha="0.5"
+                            app:srcCompat="@drawable/ic_independence_day_of_united_states_calendar" />
+
+                        <Spinner
+                            android:id="@+id/spinnerFullScrnDatum"
+                            android:layout_width="210dip"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:layout_marginStart="-6dp"
+                            android:layout_weight="1"
+                            android:background="@android:color/darker_gray"
+                            android:entries="@array/dummy_array_date"
+                            android:foregroundGravity="center"
+                            android:minWidth="150dip"
+                            android:minHeight="48dip"
+                            android:popupBackground="@color/colorBackgroundDropdown"
+                            android:spinnerMode="dropdown"
+                            android:textAlignment="viewStart" />
+
+                        <Button
+                            android:id="@+id/buttonFullScrnDatumRechts"
+                            android:layout_width="48dip"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:width="48dip"
+                            android:foregroundGravity="center"
+                            android:gravity="center"
+                            android:insetLeft="6dp"
+                            android:insetRight="0dp"
+                            android:maxWidth="48dip"
+                            android:minWidth="48dip"
+                            app:icon="@android:drawable/ic_media_ff"
+                            app:iconGravity="textEnd"
+                            app:iconPadding="4dp" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center|center_horizontal|center_vertical"
+                        android:foregroundGravity="center"
+                        android:gravity="center"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/buttonFullScrnPdfLinks"
+                            android:layout_width="48dip"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:width="48dip"
+                            android:foregroundGravity="center"
+                            android:insetRight="6dp"
+                            android:maxWidth="48dip"
+                            android:minWidth="48dip"
+                            app:icon="@android:drawable/ic_media_rew"
+                            app:iconGravity="textStart"
+                            app:iconPadding="4dp" />
+
+                        <ImageView
+                            android:id="@+id/imageViewPdf"
+                            android:layout_width="22dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="0dp"
+                            android:layout_marginEnd="-1dp"
+                            android:layout_weight="1"
+                            android:alpha="0.5"
+                            app:srcCompat="@drawable/ic_adobe_24943" />
+
+                        <Spinner
+                            android:id="@+id/spinnerFullScrnPdf"
+                            android:layout_width="210dip"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:layout_marginStart="-6dp"
+                            android:layout_weight="1"
+                            android:background="@android:color/darker_gray"
+                            android:entries="@array/dummy_array_page"
+                            android:foregroundGravity="center"
+                            android:minWidth="150dip"
+                            android:minHeight="48dip"
+                            android:popupBackground="@color/colorBackgroundDropdown"
+                            android:spinnerMode="dropdown"
+                            android:textAlignment="viewStart" />
+
+                        <Button
+                            android:id="@+id/buttonFullScrnPdfRechts"
+                            android:layout_width="48dip"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:width="48dip"
+                            android:foregroundGravity="center"
+                            android:insetLeft="6dp"
+                            android:maxWidth="48dip"
+                            android:minWidth="48dip"
+                            app:icon="@android:drawable/ic_media_ff"
+                            app:iconGravity="textEnd"
+                            app:iconPadding="4dp" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/textViewFullScrnInfo"
+                android:layout_width="250dip"
+                android:layout_height="88dp"
+                android:layout_gravity="center|center_horizontal"
+                android:clickable="false"
+                android:foregroundGravity="center"
+                android:gravity="center"
+                android:text="Lade PDFs..."
+                android:textAlignment="center"
+                android:visibility="visible"
+                tools:text="Lade PDFs..." />
+
+        </LinearLayout>
+
+    </de.snfiware.szbsb.fullscrn.MyPdfView>
+
+    <!-- This FrameLayout insets its children based on system windows using
+ android:fitsSystemWindows. -->
+    <!--
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fitsSystemWindows="true">
+
+        <LinearLayout
+            android:id="@+id/fullscreen_content_controls"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="bottom|center_horizontal"
+            android:background="@color/black_overlay"
+            android:orientation="horizontal"
+            tools:ignore="UselessParent">
+
+            <com.github.barteksc.pdfviewer.PDFView
+                android:id="@+id/pdfView"
+                style="?metaButtonBarButtonStyle"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"  />
+
+                                <Button
+                                    android:id="@+id/dummy_button"
+                                    style="?metaButtonBarButtonStyle"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="@string/dummy_button" />
+
+        </LinearLayout>
+    </FrameLayout>
+            -->
+
+</RelativeLayout>

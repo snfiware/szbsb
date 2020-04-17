@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item android:id="@+id/mi_help"
+        android:icon="@drawable/ic_help"
+        android:title="Hilfe anzeigen"
+        app:showAsAction="always" />
+
+    <item android:id="@+id/mi_delete_pdf"
+        android:title="Einzelnes PDF (aktuelle Seite) löschen"
+        app:showAsAction="never" />
+
+    <item android:id="@+id/mi_delete_folder"
+        android:icon="@android:drawable/ic_menu_today"
+        android:title="Alle PDFs der Datumsauswahl löschen"
+        app:showAsAction="never" />
+
+    <item android:id="@+id/mi_delete_all"
+        android:title="Alles löschen..."
+        app:showAsAction="never" />
+
+</menu>

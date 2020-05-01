@@ -30,6 +30,7 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NavUtils
 import com.example.sztab.R // TODO rename to szbsb
+import de.snfiware.szbsb.FullScreenForwarder
 import de.snfiware.szbsb.MainActivity
 import de.snfiware.szbsb.MainActivity.Companion.myFsf
 import de.snfiware.szbsb.main.CfgSzHandler
@@ -205,6 +206,7 @@ class FullscreenActivity : AppCompatActivity() {
         fullscreen_content.setMinZoom(1.0f)
         //
         rebuildNavigator(null)
+        myFsf.setIconFromState()
         //
         Log.i("FSA::onPostCreate", "<-")
     }

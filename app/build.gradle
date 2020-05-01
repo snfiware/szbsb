@@ -6,9 +6,30 @@ apply plugin: 'kotlin-android'
 
 apply plugin: 'kotlin-android-extensions'
 
+
+// Create a variable called keystorePropertiesFile, and initialize it to your
+// keystore.properties file, in the rootProject folder.
+def keystorePropertiesFile = rootProject.file("secret/keystore.properties")
+
+// Initialize a new Properties() object called keystoreProperties.
+def keystoreProperties = new Properties()
+
+// Load your keystore.properties file into the keystoreProperties object.
+keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+
+
+// Helper function for adding build timestamp to the version name
+def getDate() {
+    def date = new Date()
+    def formattedDate = date.format('yyyyMMddHHmmss')
+    return formattedDate
+}
+
+
 android {
     compileSdkVersion 29
     buildToolsVersion "29.0.2"
+    flavorDimensions "default"
     defaultConfig {
         python {
             buildPython "/usr/bin/python3"
@@ -18,10 +39,10 @@ android {
             }
         }
         applicationId "de.snfiware.szbsb"
-        minSdkVersion 19
+        minSdkVersion 16
         targetSdkVersion 29
         versionCode 1
-        versionName "1.0"
+        versionName '1.1'
 //        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         ndk {
             abiFilters "armeabi-v7a"
@@ -33,10 +54,26 @@ android {
             useSupportLibrary true
         }
     }
-    buildTypes {
+    signingConfigs {
         release {
-            minifyEnabled true
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+            storeFile file(keystoreProperties['storeFile'])
+            storePassword keystoreProperties['storePassword']
+            v1SigningEnabled true
+            v2SigningEnabled true            // v2SigningEnabled false
+        }
+    }
+    buildTypes {
+        debug {
+            versionNameSuffix = "-build" + getDate()
+            signingConfig signingConfigs.release
+        }
+        release {
+            versionNameSuffix = "-release" + getDate()
+            //minifyEnabled true // leads to crash when loading pdfium and when loading chaquo
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 }

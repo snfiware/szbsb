@@ -16,7 +16,7 @@ class HelpActivity : AppCompatActivity() {
         setContentView(R.layout.activity_help)
         //supportActionBar?.setDisplayHomeAsUpEnabled(true)
         val wv = findViewById(R.id.webViewHelp) as WebView
-        //wv.loadUrl("file:///snfiware_vendor.png")
+        //wv.loadUrl("file:///snfiware_sz.png")
         //wv.loadData(readTextFromResource(R.raw.helptext), "text/html", "utf-8")
 
         // Mit loadDataWithBaseURL kann man im html, z.B. im <img> Tag die Dateien direkt aus dem Ordner

@@ -69,7 +69,7 @@ class CfgSzHandler() : View.OnClickListener {
         try {
             // Hintergrundprozess starten
             adh.setView(v)
-            adh.execute(v)
+            adh.execute("all")
             //
         } catch (e: Exception) {
             sRc = e.message!! //printStackTrace().toString()

@@ -21,7 +21,7 @@ import os
 from os import environ
 import sys
 import re
-print("environ:%s"%(environ))
+print("sz.py - first contact - environ:%s"%(environ))
 #from pathlib import Path # sudo apt-get install python-pathlib
 #import urllib            # sudo apt-get install python-urllib3
 #import urllib.request	  # sudo apt-get install python-urllib3
@@ -49,6 +49,14 @@ def out(s):
 	print("[" + str(datetime.now()) + " fx:" + inspect.currentframe().f_back.f_code.co_name + "] " + s)
 	#print("[" + str(datetime.now()) + " fx:" + __name__ + "] " + str(s))
 #
+##### Callback to Java / Kotlin #####
+out("-> chaquo-class-stub-definition")
+## CALL this within executeScript to show snackbar-msg:
+# adh.showSnackMsgFromPythonViaPublishProgress("py::executeScript reached")
+## import de.snfiware.szbsb.main.AsyncDownloadHandler
+# from de.snfiware.szbsb.main import AsyncDownloadHandler
+out("<- chaquo-class-stub-definition")
+#
 def is_directory_writable(dir,bCreateIfNotExists):
 	bRc = False
 	bCreated = False
@@ -75,7 +83,15 @@ def get_script_dir(follow_symlinks=True):
 	return os.path.dirname(path)
 #
 def is_android():
-	return( 'ANDROID_STORAGE' in environ )
+	return( 'ANDROID_STORAGE' in environ or 'ANDROID_ROOT' in environ)
+#
+## On Android adh is an object of kotlin class AsyncDownloadHandler
+## If this script is executed from linux shell no such object is available nor is it necessary
+def showAndroidSnack(adh,stringText):
+	out("(async.) REQUESTING TO SHOW SNACK: '%s'"%(stringText))
+	if( is_android() ):
+		adh.showSnackMsgFromPythonViaPublishProgress(stringText)
+	#else noop = 0
 #
 def get_app_dir():
 	if is_android():
@@ -140,7 +156,7 @@ def load_config():
 	else:
 		out("STILL USING DEFAULTS for download - cfg: %s"%downloadFolderFromCfg)
 		#
-	if downloadFolder[0:1] == ".." or downloadFolder[0] == ".": # relative from script location
+	if downloadFolder[0:2] == ".." or downloadFolder[0] == ".": # relative from script location
 		downloadFolder = get_app_dir() + "/" + downloadFolder
 	downloadFolder = downloadFolder + "/" + str(date.today()) + "/"
 	out( "username: '%s'; password: '%s'; myPages: %s; myTopics: %s; downloadFolder is '%s'"%
@@ -148,7 +164,9 @@ def load_config():
 	return(username,password,myPages,myTopics,downloadFolder)
 #
 def check_config(username,password,myPages,myTopics,downloadFolder):
-	assert( len(username) > 0 ), "empty or invalid username '%s'"%username
+	assert( len(username) > 0 ), "empty username"
+	assert( len(username) == 12 ), "username must be 12-digits long '%s'"%username
+	assert( is_numeric(username) ), "username must be numeric '%s'"%username
 	assert( len(password) > 0 ), "empty or invalid password '%s'"%password
 	assert( len(downloadFolder) > 0), "empty or invalid downloadFolder '%s'"%downloadFolder
 	assert( is_directory_writable(downloadFolder,True) ), "NO write permissions to downloadFolder '%s'"%downloadFolder
@@ -165,6 +183,8 @@ def urlStringReplace(myUrl):
 # wird benutzt um nix doppelt zu holen und die Reihenfolge zu verwalten
 dictDownloads = {} 
 # dictDownloads = {<page>:{'url':<url>,'from':<topic>|'page','idx':<number>}
+FAILOVER = 90 # page number to start with on failover when trying to extract from html
+#
 def getKey(intOrStr):
 	key = int(str(intOrStr))
 	if key < 0 or key > 100: 
@@ -181,11 +201,14 @@ def getFileNameForPdf( k, i ):
 	else:
 		sRc += ("-("+dictDownloads[k]['from'])+("-"+str(dictDownloads[k]['idx']))+(")-I%02i"%i)
 	#
-	return sRc+".pdf"
+	return str(sRc+".pdf").replace('/','+')
 #
-def memorizeUrl(anykey, urlString, idx, topic='page', maxExtra=5):
+def memorizeUrl(anykey, n2ndKey, urlStartIdx, urlString, idx, topic='page', maxExtra=9):
 	skey = getKey(anykey) # just for validating
+	skey = getKey(n2ndKey)# just for validating
 	key = int(str(anykey))
+	key2= int(str(n2ndKey))
+	assert( key <= key2 ), "key '%i' darf nicht größer als key2 '%i' sein."%(key,key2)
 	if key in dictDownloads:
 		if urlString == dictDownloads[key]['url']:
 			if 'page' == topic or 'page' != dictDownloads[key]['from']:
@@ -193,24 +216,29 @@ def memorizeUrl(anykey, urlString, idx, topic='page', maxExtra=5):
 				return
 			else:
 				out("upclassing page to topic")
-		elif maxExtra > 0 and key > 90:
-			out("key '%i' already set, try another slot - recalling memorize"%(key))
-			memorizeUrl(anykey-1, urlString, topic, idx, maxExtra-1)
+		elif key2 not in dictDownloads:
+			out("using secondary key '%i' instead of taken primary '%i'"%(key2,key))
+			key = key2
+		elif maxExtra > 0 and key2 < 99:
+			out("key'%i'+key2'%i' already set, try another slot (extra avail: %i) - recalling memorize"%(key,key2,maxExtra))
+			memorizeUrl(key2+1, key2+1, urlStartIdx, urlString, idx, topic, maxExtra-1)
+			return
+		elif key != key2 and key2 in dictDownloads:
+			out("FATAL ERROR: both keys are taken '%i' & '%i' - LOSING CONTENT!"%(key,key2))
 			return
 		else:
 			out("ALREADY EXISTING KEY %i - OVERWRITING NOW!\nold value: %s\nnew value: %s"
 				%(key, dictDownloads[key]['url'], urlString)) 
-	out("setting key '%i' to topic: %s(%i) and url: %s"%(key,topic,idx,urlString))
-	dictDownloads[key] = {'url':urlString,'from':topic,'idx':idx}
+	out("setting key '%i' to topic: %s(%i) and url[%i]: %s"%(key,topic,idx,urlStartIdx,urlString))
+	dictDownloads[key] = {'url':urlString,'from':topic,'idx':idx,'pos':urlStartIdx}
 #
 def is_numeric( c ):
 	bRc = False
-	if len(c) == 1:
-		try:
-			n = int(c)
-			bRc = True
-		except Exception as e:
-			out("ign.: "+str(c)+"; exc.: "+str(e)) # ignore everything
+	try:
+		n = int(c)
+		bRc = True
+	except Exception as e:
+		out("ign.: "+str(c)+"; exc.: "+str(e)) # ignore everything
 	return bRc
 # Sucht innerhalb des Webseiten-Texts ws die Seitenzahl seite und sucht nach intern
 # definierten Regeln die passende href raus, setzt evtl. störende Zeichen um,
@@ -219,7 +247,8 @@ def is_numeric( c ):
 #
 # Beispiel-XML-Fragment siehe unten 
 #
-def getUrlByPageNumber( ws, seite, baseUrl ): 
+def getUrlByPageNumber( ws, seite, baseUrl ):
+	rcUrlStartIdx = -1
 	rcUrlFragment = ""
 	lookupTopic =   ['">' +str(seite)+"</a>" \
 					,'"> '+str(seite)+"</a>" \
@@ -239,7 +268,8 @@ def getUrlByPageNumber( ws, seite, baseUrl ):
 					out("a-href found at idx: "+str(idxARef))
 					idxEndUrl = ws.find('"',idxARef+len(lookupARef)+1)
 					if idxEndUrl != -1:
-						rcUrlFragment = ws[idxARef+len(lookupARef) : idxEndUrl]
+						rcUrlStartIdx = idxARef+len(lookupARef)
+						rcUrlFragment = ws[rcUrlStartIdx : idxEndUrl]
 						out("EXTRACTED URL FRAGMENT (" + str(idxARef) + "," + str(idxEndUrl) + "): " + rcUrlFragment)
 						break # first best is enough - list lookupTopic is ordered appropriately
 					else:
@@ -251,7 +281,7 @@ def getUrlByPageNumber( ws, seite, baseUrl ):
 		else: 
 			out("cannot find pageNumber with expr: " + t)
 	#
-	return( baseUrl + urlStringReplace(rcUrlFragment) )
+	return( rcUrlStartIdx, baseUrl + urlStringReplace(rcUrlFragment) )
 #
 # Beispiel-Fragment: >Politik< ---> URL-HREF->URL-Ende ---> Seite ">@ 1</a"
 #                    >Themen des Tages< (BACK)<--- URL-HREF->URL-Ende ---> Seite ">2 </a"
@@ -293,24 +323,39 @@ def getUrlByTopic( ws, topic, baseUrl, callerIndex, callerTotal ):
 			if idxARef != -1:
 				idxEndUrl = ws.find('"',idxARef+len(lookupARef))
 				if idxEndUrl != -1:
-					urlFragment = ws[idxARef+9 : idxEndUrl]
-					out("EXTRACTED URL FRAGMENT (" + str(idxARef) + "," + str(idxEndUrl) + "): " + urlFragment)
+					urlStartIdx = idxARef+9
+					urlFragment = ws[urlStartIdx : idxEndUrl]
+					out("EXTRACTED URL FRAGMENT (" + str(urlStartIdx) + "," + str(idxEndUrl) + "): " + urlFragment)
+					#
 					out("find corresponding page...")
-					foundPageNumber = 99 # failover
+					foundPageNumber = FAILOVER
+					foundPageNumber2 = FAILOVER
 					buf = ws[idxEndUrl+2 : idxEndUrl+50]
 					#out("buf: "+buf)
 					idxNextLt = buf.find('<')
 					if idxNextLt != -1:
-						buf = re.sub("[^0-9]", "", buf)
-						#out("buf: "+buf)
-						try: foundPageNumber = int(buf)
-						except: out("cannot convert '%s' to integer - ignoring..."%buf)	
+						bufi = buf[0:idxNextLt].strip()
+						out("bufi: "+bufi)
+						if bufi[0:3] == 'KIN':
+							out("KIN detected - put these to failover section")
+							bufi = str(FAILOVER)
+						try:
+							foundPageNumber = int(bufi)
+							foundPageNumber2 = foundPageNumber
+						except:
+							out("cannot convert '%s' to integer - give last try..."%bufi)
+							try:
+								bufi = re.sub("[^0-9]", "", bufi)
+								foundPageNumber2 = FAILOVER
+								foundPageNumber = int(bufi)
+							except: out("IMPOSSIBLE: '%s'"%bufi)
 					else:
 						out("Spitze Klammer nicht gefunden")
-						
+					#
 					out("FOUND PAGE NUMBER: Memorize Page-PDF Hit: %i Page: %i (%s %i/%i)..." 
 						% (i,foundPageNumber,topic,callerIndex,callerTotal) )
-					memorizeUrl(foundPageNumber, baseUrl + urlStringReplace(urlFragment), callerIndex, topic)
+					memorizeUrl(foundPageNumber, foundPageNumber2,
+								urlStartIdx, baseUrl + urlStringReplace(urlFragment), callerIndex, topic)
 				else:
 					out("cannot find end of url")
 					continue
@@ -369,9 +414,194 @@ def getPdf(c, baseUrl, myUrl, headers, folders, fileName):
 	out("Finished Download - File '%s' created.\n"%(folders+fileName))
 #
 ##########
-# START
+def loginAndNavigateToToday( username, password, adh, c ):
+	out("Login and navigate to main...")
+	showAndroidSnack(adh,"Authentifizierung...")
+	#
+	myUrl = 'http://emedia1.bsb-muenchen.de/han/SZ' # ist noch nicht https und ohne headers
+	out("\n\n>>>CALLING: " + myUrl)
+	r = c.get(myUrl) # erster Call scheint unnützt, ist aber notwendig
+	out("############################## >>> forwarded-url: " + r.url + " <<<")
+	out("r.status_code: " + str(r.status_code))
+	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
+	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
+	#
+	out("Starte Authentifzierung...")
+	# prepare header + data=payload - we work with one combined set for all calls
+	headers = {
+		'Content-Type': 'application/x-www-form-urlencoded'
+		,'Origin': 'https://emedia1.bsb-muenchen.de'
+		,'Referer': 'https://emedia1.bsb-muenchen.de/login/bsbLogin.html'
+		,'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36'
+	}
+	payload = {'user': username
+		,'plainuser': username
+		,'password': password
+		,'Service': ''
+		,'auth': 'auto'
+		,'j_username': 'performIpLogin'
+		,'j_password': ''
+		,'ipLoginApplication': 'LIBNET'
+		,'loginType': ''
+			   }
+	#
+	myUrl = 'https://emedia1.bsb-muenchen.de/hhauth/login' # könnte man sich auch aus der response holen
+	out("\n\n>>>CALLING: " + myUrl)
+	r = c.post(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True)
+	myUrl = r.url
+	out("############################## >>> forwarded-url: " + r.url + " <<<")
+	out("r.status_code: " + str(r.status_code))
+	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
+	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
+	#
+	try:
+		myUrl = 'https://' + [k.domain for k in c.cookies if k.name=='JSESSIONID'][0] + \
+				[k.path   for k in c.cookies if k.name=='JSESSIONID'][0] + '/j_security_check'
+	except IndexError as e:
+		out("EXC: Session-Cookie not found: "+str(e))
+		raise Exception("Auth. failed - check user/pw")
+	#
+	out("\n\n>>>CALLING: " + myUrl)
+	r = c.post(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True)
+	out("############################## >>> forwarded-url: " + r.url + " <<<")
+	out("r.status_code: " + str(r.status_code))
+	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
+	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
+	#
+	if( r.status_code == 200 ):
+		showAndroidSnack(adh,"Lese Hauptausgabe...")
+	#
+	out("Suche URL zu den Ganzseiten...")
+	# Find within this string the URL:
+	# <a target="diz_pdfNavigation" href="https://service3-1szarchiv-1de-10083dcqf023f.emedia1.bsb-muenchen.de/hh03/hh03.ashx?req=nav&uid=libnetbsbmuenchen&ugr=ugroup_abo_libnetretro&bid=navj.SZ.SZ.2019&z=Z44134" onclick="SSP.Navigation.logHeaderLink('Ganzseiten');">Ganzseiten</a>
+	ws = r.text
+	extractedUrlGanzseiten = ""
+	idxGanzseiten = ws.find('" onclick="SSP.Navigation.logHeaderLink(\'Ganzseiten\');"')
+	if idxGanzseiten != -1:
+		out("idxGanzseiten: "+str(idxGanzseiten)+"; len(ws): "+str(len(ws)))
+		idxARef = ws.rfind('<a target="diz_pdfNavigation" href="',idxGanzseiten-500,len(ws)-idxGanzseiten)
+		if idxARef != -1:
+			extractedUrlGanzseiten = ws[idxARef+36 : idxGanzseiten]
+			out("EXTRACTED URL (" + str(idxARef) + "): " + extractedUrlGanzseiten)
+		else:
+			out("cannot find <a... - quitting...")
+			quit()
+	else:
+		out("cannot find Ganzseiten - quitting...")
+		quit()
+	#
+	myUrl = extractedUrlGanzseiten
+	out("\n\n>>>CALLING Ganzseiten: " + myUrl)
+	r = c.get(myUrl, headers=headers, cookies=c.cookies)
+	out("############################## >>> forwarded-url: " + r.url + " <<<")
+	out("r.status_code: " + str(r.status_code))
+	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
+	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
+	#
+	baseUrl = myUrl[ : myUrl.find('/hh03/')+6]
+	#
+	r.encoding = "UTF-8"
+	ws = r.text.replace("&amp;","&")
+	out("r.text: \n" + ws)
+	#
+	# by *default* we are on SZ Hauptausgabe
+	#
+	# <div style="color:#C35100; border-bottom:1px solid Gainsboro; margin-bottom:7px; padding-bottom:5px; ">
+	# <a href="hh03.ashx?req=nav&bid=navj.SZ.SZ.2020...&uid=libnetbsbmuenchen&usi=10042&ugr=ugroup%5Fabo%5Flibnetretro&z=Z38846">SZ-Hauptausgabe</a></div>
+	#
+	#
+	# subnavi zum magazin könnte mit diesem Link zu funktionieren:
+	#
+	# <div style="border-bottom:1px solid Gainsboro; margin-bottom:7px; padding-bottom:5px; ">
+	# <a title="11.05.1990 - heute" href="hh03.ashx?req=nav&bid=navj.SZ.MAG.2020...&uid=libnetbsbmuenchen&usi=10042&ugr=ugroup%5Fabo%5Flibnetretro&z=Z91361">SZ Magazin</a></div>
+	#
+	out("Suche URL des letzten Erscheinungstags...")
+	# parsing for today or most recent within
+	# <a title="Letzter Erscheinungstag: 27.12.2019" href="hh03.ashx?req=nav&amp;bid=navd.SZ.SZ.20191227.DEU....&amp;uid=libnetbsbmuenchen&amp;usi=10017&amp;ugr=ugroup%5Fabo%5Flibnetretro&amp;z=Z23777">Â heute</a></div>
+	extractedUrlRelative = ""
+	idxHeute = ws.find('Letzter Erscheinungstag')
+	if idxHeute != -1:
+		idxARef = ws.find('href="',idxHeute)
+		if( idxARef != -1 ):
+			idxEndUrl = ws.find('"',idxARef+7)
+			if idxEndUrl != -1:
+				out("idxHeute: %i, idxARef: %i, idxEndUrl: %i"%(idxHeute,idxARef,idxEndUrl))
+				extractedUrlRelative = ws[idxHeute+43 : idxEndUrl]
+			else:
+				out("cannot find terminator")
+		else:
+			out("cannot find href")
+	else:
+		out("cannot find Letzter Erscheinungstag")
+	#
+	# letzter (auf der Seite) ET1A *mit* a-tag-child. Vorsicht gibt auch ET1a und child; Außerdem ist noch Space dazwischen
+	# Logik: Alle Spaces wegschmeißen und dann auf '<tdclass="ET1A"><ahref="' von hinten losgehen
+	# <td class="ET1A">									<a href="hh03.ashx?req=nav&amp;bid=navd.SZ.SZ.20200102.....&amp;uid=libnetbsbmuenchen&amp;usi=10017&amp;ugr=ugroup%5Fabo%5Flibnetretro&amp;z=Z78060">2</a></td>
+	if extractedUrlRelative == "":
+		out("letzter Versuch")
+		ws = r.text.replace(' ','').replace('\t','').replace('\n','').replace('\r','')
+		suchTok = '<tdclass="ET1A"><ahref="'
+		idxHeute = ws.rfind(suchTok)
+		if idxHeute != -1:
+			idxARef = 0
+			if( idxARef != -1 ):
+				idxEndUrl = ws.find('"',idxHeute+len(suchTok))
+				if idxEndUrl != -1:
+					out("Gefunden - extrahiere URL; idxHeute: %i, idxARef: %i, idxEndUrl: %i"%(idxHeute,idxARef,idxEndUrl))
+					extractedUrlRelative = ws[idxHeute+len(suchTok) : idxEndUrl]
+				else:
+					out("cannot find terminator")
+			else:
+				out("cannot find href")
+		else:
+			out("cannot find '%s'"%suchTok)
+	#
+	if extractedUrlRelative == "":
+		out("quitting...")
+		quit()
+	#
+	myUrl = baseUrl + extractedUrlRelative
+	out( "replacing strings" )
+	myUrl = urlStringReplace(myUrl)
+	out("\n\n>>>CALLING (Subnavi nach HEUTE): " + myUrl)
+	r = c.get(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True)
+	myUrl = r.url
+	out("############################## >>> forwarded-url: " + r.url + " <<<")
+	out("r.status_code: " + str(r.status_code))
+	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
+	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
+	out("r.request.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.request.headers.items()))
+	#
+	out("returning baseUrl: '%s'"%(baseUrl))
+	return(r,baseUrl,headers,payload)
+#
+# WebSite ws should contain a string like this:
+# <a title="11.05.1990 - heute" href="hh03.ashx?req=nav&bid=navd.SZ.MAG.20200430.....&uid=libnetbsbmuenchen&usi=10006&ugr=ugroup%5Fabo%5Flibnetretro&z=Z52508" style="color:black; ">SZ Magazin</a></div>
+# This function matches i.e. "SZ Magazin" and returns the urlFragment within href attribute
+def getSubNaviUrl(ws,sArea):
+	rcUrlFragment = ""
+	lookupATxt = "%s</a>"%sArea
+	lookupARef = 'href="'
+	lookupTerm = '"'
+	idxFound = ws.find(lookupATxt)
+	if idxFound != -1:
+		out("a-text found at idx: "+str(idxFound))
+		idxARef = ws.rfind(lookupARef,idxFound-500,idxFound-1)
+		if idxARef != -1:
+			out("a-href found at idx: "+str(idxARef))
+			idxTerm = ws.find(lookupTerm,idxARef+10)
+			if idxTerm != -1:
+				out("terminator found at idx: "+str(idxTerm))
+				rcUrlFragment = urlStringReplace(ws[idxARef+len(lookupARef) : idxTerm])
+	out("returning subnavi-url: '%s'; ATxt: '%s'; len ws: %i"%(rcUrlFragment,lookupATxt,len(ws)))
+	return( rcUrlFragment )
+#
 ##########
-def executeScript( strContext ):
+# This executor is operated differently depending on the platform it is running on
+# If on android: adh is an object of kotlin class AsyncDownloadHandler. It shows progress advance.
+# If not on android: for adh pass in an arbitrary string (object is ignored)
+##########
+def executeScript( adh, strContext ):
 	out("Starte Ausführung (%s) des Scripts..."%strContext)
 	username,password,myPages,myTopics,downloadFolder = load_config()
 	check_config(username,password,myPages,myTopics,downloadFolder) # will raise on error
@@ -384,145 +614,35 @@ def executeScript( strContext ):
 		# apply WORKAROUND "android qpython cipher", see above
 		c.mount('https://', MyAdapter())
 		#
-		myUrl = 'http://emedia1.bsb-muenchen.de/han/SZ' # ist noch nicht https und ohne headers
-		out("\n\n>>>CALLING: " + myUrl)
-		r = c.get(myUrl) # erster Call scheint unnützt, ist aber notwendig
-		out("############################## >>> forwarded-url: " + r.url + " <<<")
-		out("r.status_code: " + str(r.status_code))
-		out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
-		out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
+		r,baseUrl,headers,payload = loginAndNavigateToToday(username,password,adh,c)
 		#
-		out("Starte Authentifzierung...")
-		# prepare header + data=payload - we work with one combined set for all calls
-		headers = {
-			'Content-Type': 'application/x-www-form-urlencoded'
-			,'Origin': 'https://emedia1.bsb-muenchen.de'
-			,'Referer': 'https://emedia1.bsb-muenchen.de/login/bsbLogin.html'
-			,'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36'
-		}
-		payload = {'user': username
-			,'plainuser': username
-			,'password': password
-			,'Service': ''
-			,'auth': 'auto'
-			,'j_username': 'performIpLogin'
-			,'j_password': ''
-			,'ipLoginApplication': 'LIBNET'
-			,'loginType': ''
-		}
+		r.encoding = "UTF-8"
+		ws = r.text.replace("&amp;","&")
+		out("r.text: \n" + ws)
 		#
-		myUrl = 'https://emedia1.bsb-muenchen.de/hhauth/login' # könnte man sich auch aus der response holen
-		out("\n\n>>>CALLING: " + myUrl)
-		r = c.post(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True)
-		myUrl = r.url
-		out("############################## >>> forwarded-url: " + r.url + " <<<")
-		out("r.status_code: " + str(r.status_code))
-		out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
-		out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
+		# We reached today (or most recent).
+		# By default we are on SZ Hauptausgabe - sub-navi is available:
 		#
-		try:
-			myUrl = 'https://' + [k.domain for k in c.cookies if k.name=='JSESSIONID'][0] + \
-								 [k.path   for k in c.cookies if k.name=='JSESSIONID'][0] + '/j_security_check'
-		except IndexError as e:
-			out("EXC: Session-Cookie not found: "+str(e))
-			raise Exception("Auth. failed - check user/pw")
+		# <a title="29.01.1998 - heute" href="hh03.ashx?req=nav&bid=navd.SZ.EXT.20200430.....&uid=libnetbsbmuenchen&usi=10006&ugr=ugroup%5Fabo%5Flibnetretro&z=Z55742" style="color:black; ">SZ Extra</a></div>
+		# <div style="border-bottom:1px solid Gainsboro; margin-bottom:7px; padding-bottom:5px; ">
+		# <a title="11.05.1990 - heute" href="hh03.ashx?req=nav&bid=navd.SZ.MAG.20200430.....&uid=libnetbsbmuenchen&usi=10006&ugr=ugroup%5Fabo%5Flibnetretro&z=Z52508" style="color:black; ">SZ Magazin</a></div>
+		# <div style="border-bottom:1px solid Gainsboro; margin-bottom:7px; padding-bottom:5px; ">
+		# <a title="04.01.1999 - heute" href="hh03.ashx?req=nav&bid=navd.SZ.REG.20200430.....&uid=libnetbsbmuenchen&usi=10006&ugr=ugroup%5Fabo%5Flibnetretro&z=Z96586" style="color:black; ">SZ-Landkreise</a></div></td>
 		#
-		out("\n\n>>>CALLING: " + myUrl)
-		r = c.post(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True)
-		out("############################## >>> forwarded-url: " + r.url + " <<<")
-		out("r.status_code: " + str(r.status_code))
-		out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
-		out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
-		#
-		out("Suche URL zu den Ganzseiten...")
-		# Find within this string the URL:
-		# <a target="diz_pdfNavigation" href="https://service3-1szarchiv-1de-10083dcqf023f.emedia1.bsb-muenchen.de/hh03/hh03.ashx?req=nav&uid=libnetbsbmuenchen&ugr=ugroup_abo_libnetretro&bid=navj.SZ.SZ.2019&z=Z44134" onclick="SSP.Navigation.logHeaderLink('Ganzseiten');">Ganzseiten</a>
-		ws = r.text
-		extractedUrlGanzseiten = ""
-		idxGanzseiten = ws.find('" onclick="SSP.Navigation.logHeaderLink(\'Ganzseiten\');"')
-		if idxGanzseiten != -1:
-			out("idxGanzseiten: "+str(idxGanzseiten)+"; len(ws): "+str(len(ws)))
-			idxARef = ws.rfind('<a target="diz_pdfNavigation" href="',idxGanzseiten-500,len(ws)-idxGanzseiten)
-			if idxARef != -1:
-				extractedUrlGanzseiten = ws[idxARef+36 : idxGanzseiten]
-				out("EXTRACTED URL (" + str(idxARef) + "): " + extractedUrlGanzseiten)
-			else:
-				out("cannot find <a... - quitting...")
-				quit()
-		else:
-			out("cannot find Ganzseiten - quitting...")
-			quit()
-		#
-		myUrl = extractedUrlGanzseiten
-		out("\n\n>>>CALLING Ganzseiten: " + myUrl)
-		r = c.get(myUrl, headers=headers, cookies=c.cookies)
-		out("############################## >>> forwarded-url: " + r.url + " <<<")
-		out("r.status_code: " + str(r.status_code))
-		out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
-		out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
-		#
-		baseUrl = myUrl[ : myUrl.find('/hh03/')+6]
-		out(r.text)
-		#
-		out("Suche URL des letzten Erscheinungstags...")
-		# parsing for today or most recent within
-			# <a title="Letzter Erscheinungstag: 27.12.2019" href="hh03.ashx?req=nav&amp;bid=navd.SZ.SZ.20191227.DEU....&amp;uid=libnetbsbmuenchen&amp;usi=10017&amp;ugr=ugroup%5Fabo%5Flibnetretro&amp;z=Z23777">Â heute</a></div>
-		ws = r.text
-		extractedUrlRelative = ""
-		idxHeute = ws.find('Letzter Erscheinungstag')
-		if idxHeute != -1:
-			idxARef = ws.find('href="',idxHeute)
-			if( idxARef != -1 ):
-				idxEndUrl = ws.find('"',idxARef+7)
-				if idxEndUrl != -1:
-					out("idxHeute: %i, idxARef: %i, idxEndUrl: %i"%(idxHeute,idxARef,idxEndUrl))
-					extractedUrlRelative = ws[idxHeute+43 : idxEndUrl]
-				else:
-					out("cannot find terminator")
-			else:
-				out("cannot find href")
-		else:
-			out("cannot find Letzter Erscheinungstag")
-		#
-		# letzter (auf der Seite) ET1A *mit* a-tag-child. Vorsicht gibt auch ET1a und child; Außerdem ist noch Space dazwischen
-		# Logik: Alle Spaces wegschmeißen und dann auf '<tdclass="ET1A"><ahref="' von hinten losgehen
-		# <td class="ET1A">									<a href="hh03.ashx?req=nav&amp;bid=navd.SZ.SZ.20200102.....&amp;uid=libnetbsbmuenchen&amp;usi=10017&amp;ugr=ugroup%5Fabo%5Flibnetretro&amp;z=Z78060">2</a></td>
-		if extractedUrlRelative == "":
-			out("letzter Versuch")
-			ws = r.text.replace(' ','').replace('\t','').replace('\n','').replace('\r','')
-			suchTok = '<tdclass="ET1A"><ahref="'
-			idxHeute = ws.rfind(suchTok)
-			if idxHeute != -1:
-				idxARef = 0
-				if( idxARef != -1 ):
-					idxEndUrl = ws.find('"',idxHeute+len(suchTok))
-					if idxEndUrl != -1:
-						out("Gefunden - extrahiere URL; idxHeute: %i, idxARef: %i, idxEndUrl: %i"%(idxHeute,idxARef,idxEndUrl))
-						extractedUrlRelative = ws[idxHeute+len(suchTok) : idxEndUrl]
-					else:
-						out("cannot find terminator")
-				else:
-					out("cannot find href")
-			else:
-				out("cannot find '%s'"%suchTok)
-		#
-		if extractedUrlRelative == "":
-			out("quitting...")
-			quit()
-		#
-		myUrl = baseUrl + extractedUrlRelative
-		out( "replacing strings" )
-		myUrl = urlStringReplace(myUrl)
-		out("\n\n>>>CALLING (Subnavi nach HEUTE): " + myUrl)
-		r = c.get(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True)
-		myUrl = r.url
-		out("############################## >>> forwarded-url: " + r.url + " <<<")
-		out("r.status_code: " + str(r.status_code))
-		out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
-		out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
-		out("r.request.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.request.headers.items()))
-		out("r.text: \n" + r.text)
-		#
+		# todo: Regel "überhaupt angefordert" hinzufügen
+		# myUrl = getSubNaviUrl(ws, "Magazin")
+		# if len(myUrl) > 0:
+		# 	myUrl = baseUrl + myUrl
+		# 	out("\n\n>>>CALLING (Subnavi zum Magazin): " + myUrl)
+		# 	r = c.get(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True)
+		# 	myUrl = r.url
+		# 	out("############################## >>> forwarded-url: " + r.url + " <<<")
+		# 	out("r.status_code: " + str(r.status_code))
+		# 	#
+		# 	r.encoding = "UTF-8"
+		# 	ws = r.text.replace("&amp;","&")
+		# 	out("r.text: \n" + ws)
+			#
 		# Starting downloads, first by page, then by topic
 		out("\n-----------------------------\n--------- GET PAGES ---------\n-----------------------------")
 		i = 0 # each collection
@@ -533,13 +653,13 @@ def executeScript( strContext ):
 			i += 1
 			ao += 1
 			out("Processing PDFs by page %i/%i ..." % (i,len(myPages)) )
-			myUrl = getUrlByPageNumber(r.text, m, baseUrl)
-			if myUrl == baseUrl:
+			urlStartIdx, myUrl = getUrlByPageNumber(ws, m, baseUrl)
+			if urlStartIdx == -1:
 				out("PDFs by page %i/%i was not found - skipping" % (i,len(myPages)) )
 			else:
 				out("Memorize Page-PDF (%i/%i)..." % (i,len(myPages)) )
-				memorizeUrl(m, myUrl, i)
-		out("done with pages, now %i:\n %s"%(len(dictDownloads),'\n '.join('{}: {}'.format("%02i"%(k), v['url'][96:999]) for k, v in dictDownloads.items())))
+				memorizeUrl(m, m, urlStartIdx, myUrl, i)
+		out("done with pages, now %i:\n %s"%(len(dictDownloads),'\n '.join('{}: {}'.format("%02i"%(k), "[%i] %s"%(v['pos'],v['url'][96:999])) for k, v in dictDownloads.items())))
 		#
 		out("\n------------------------------\n--------- GET TOPICS ---------\n------------------------------")
 		i = 0
@@ -547,22 +667,30 @@ def executeScript( strContext ):
 		for m in myTopics:
 			i += 1
 			out("Processing PDFs by topic %i/%i (%s)..." % (i,len(myTopics),m) )
-			getUrlByTopic(r.text, m, baseUrl, i, len(myTopics))
-		out("done with topics, now %i:\n %s"%(len(dictDownloads),'\n '.join('{}: {}'.format("%02i"%(k), v['url'][96:999]) for k, v in dictDownloads.items())))
+			getUrlByTopic(ws, m, baseUrl, i, len(myTopics))
+		out("done with topics, now %i:\n %s"%(len(dictDownloads),'\n '.join('{}: {}'.format("%02i"%(k), "[%i] %s"%(v['pos'],v['url'][96:999])) for k, v in dictDownloads.items())))
 		#
 		out("\n------------------------------\n--------- DOWNLOAD ---------\n------------------------------")
+		showAndroidSnack(adh,"%i PDF holen..."%len(dictDownloads))
 		i = 0
 		for k in dictDownloads:
 			i += 1
 			myUrl = dictDownloads[k]['url']
 			out( "Downloading PDFs SZ-Page: %i Progress: %i/%i ...\nURL:%s"%(k,i,len(dictDownloads),myUrl) )
 			getPdf( c, baseUrl, myUrl, headers, downloadFolder, getFileNameForPdf(k,i) )
+			if(i%10==0):
+				showAndroidSnack(adh,"Hole %i/%i PDF..."%(i,len(dictDownloads)))
+		#
 		out( "done with downloading %i PDFs"%len(dictDownloads) )
+		showAndroidSnack(adh,"Fertig. %i PDF geholt."%len(dictDownloads))
 		#
 	out("done with executeScript.")
 	out("Beende Ausführung (%s) des Scripts"%strContext)
 	#
-#out("calling executeScript")
-#executeScript()
-out("done with script (happens on loadModule).")
+if(is_android()):
+	out("MARK THIS: no automatic execution on loading script when invoked on android")
+else:
+	out("calling executeScript")
+	executeScript("adh","we are not on android, script is executed on invoking script")
+out("done with script.")
 #

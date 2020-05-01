@@ -37,7 +37,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="15dip">
+                    android:padding="10dp">
 
                     <LinearLayout
                         android:layout_width="wrap_content"
@@ -76,7 +76,7 @@
 
                         <Spinner
                             android:id="@+id/spinnerFullScrnDatum"
-                            android:layout_width="210dip"
+                            android:layout_width="250dip"
                             android:layout_height="wrap_content"
                             android:layout_gravity="center"
                             android:layout_marginStart="-6dp"
@@ -142,7 +142,7 @@
 
                         <Spinner
                             android:id="@+id/spinnerFullScrnPdf"
-                            android:layout_width="210dip"
+                            android:layout_width="250dip"
                             android:layout_height="wrap_content"
                             android:layout_gravity="center"
                             android:layout_marginStart="-6dp"

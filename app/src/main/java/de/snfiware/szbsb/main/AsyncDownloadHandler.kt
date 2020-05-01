@@ -19,16 +19,16 @@ import android.os.AsyncTask
 import android.util.Log
 import android.view.View
 import android.widget.ProgressBar
-
+import android.widget.TextView
 import com.chaquo.python.PyObject
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
-
-import de.snfiware.szbsb.FullScreenForwarder
-import de.snfiware.szbsb.MainActivity
 import com.example.sztab.R
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.snackbar.Snackbar
+import de.snfiware.szbsb.FullScreenForwarder
+import de.snfiware.szbsb.MainActivity
+
 
 /**
  * Hier wird Chaquopy initialisiert, das Python-Skript für den Download geladen
@@ -41,12 +41,13 @@ import com.google.android.material.snackbar.Snackbar
  *
  * https://developer.android.com/reference/android/os/AsyncTask
  * https://stackoverflow.com/questions/3391272/how-to-use-separate-thread-to-perform-http-requests
+ * https://stackoverflow.com/questions/9671546/asynctask-android-example (picture in the middle)
  */
-class AsyncDownloadHandler : AsyncTask<View, String?, String?>() {
+class AsyncDownloadHandler : AsyncTask<String, String, String>() {
     //
     var pb: ProgressBar? = null
-    var pyModule: PyObject? = null
-    var pf: PyObject? = null
+    // var pyModule: PyObject? = null
+    var pyFuncExecuteScript: PyObject? = null
     //
     val E_OK = "OK"
     var myErr :String = E_OK
@@ -58,48 +59,55 @@ class AsyncDownloadHandler : AsyncTask<View, String?, String?>() {
     }
 
     private fun initChaquo() {
+        Log.i("ADH::INICHAQ","->")
         if (!Python.isStarted()) {
+            Log.i("ADH::INICHAQ","Starting Chaquo...")
             Python.start(AndroidPlatform(MainActivity.myMain!!.applicationContext))
         }
+        // this seems to be neccessary each time before using executeScript...
+        Log.d("ADH::OPRE","getInst...")
+        val pi = Python.getInstance()
+        Log.d("ADH::OPRE","getModule...")
+        val pyModule = pi.getModule("sz")
+        //
+        Log.d("ADH::OPRE","get: executeScript...")
+        pyFuncExecuteScript = pyModule?.get("executeScript")
+        //
+        Log.i("ADH::INICHAQ","<-")
     }
 
     override fun onPreExecute() {
-        initChaquo()
+        Log.i("ADH::OPRE","->")
         super.onPreExecute()
         //
-        val fab = MainActivity.myMain?.findViewById(R.id.fabDownload) as FloatingActionButton
+        var fab = MainActivity.myMain?.findViewById(R.id.fabDownload) as FloatingActionButton
         fab.isEnabled = false // Knopf während Download ausschalten
         //
-        Log.d("ADH::DIB","getInst...")
-        val pi = Python.getInstance()
-        Log.d("ADH::DIB","getModule...")
-        pyModule = pi.getModule("sz")
-        //
-        Log.d("ADH::DIB","get: executeScript...")
-        pf = pyModule?.get("executeScript")
-        //
-        var sRc : String
-        sRc = "Download läuft..."
-        Log.d("ADH::OPRE",sRc)
-        Snackbar.make(v, sRc, Snackbar.LENGTH_LONG)
-            .setAction("Action", null).show()
+        fab = MainActivity.myMain?.findViewById(R.id.fabFullscreen) as FloatingActionButton
+        fab.isEnabled = false // Knopf während Download ausschalten
         //
         pb = MainActivity.myMain?.findViewById(R.id.progressBar) as ProgressBar
         pb!!.visibility = View.VISIBLE
         pb!!.bringToFront()
+        Log.i("ADH::OPRE","<-")
     }
 
-    override fun doInBackground(vararg va: View?): String? {
-        Log.i("ADH::DIB", "-> v: "+va.toString())
+    override fun doInBackground(vararg va: String): String? {
+        Log.i("ADH::DIB", "-> va: "+va.toString())
         myErr = E_OK
         //v = va.get(0) as View
-        // Skript ausführen - wichtig: ohne .py
-        // Python.getInstance().getModule("sz")
+        publishProgress( "Initialisierung..." )
+        // Skriptausführung via Chaquopy vorbereiten
+        initChaquo()
+        assert( pyFuncExecuteScript != null ) // "initChaquopy failed"
+        //
+        publishProgress( "Starte Skript..." )
+        //
         var sRc :String = "PDF(s) wurden erfolgreich heruntergeladen"
         try {
             val strContext = MainActivity.nextCounter().toString()
             Log.d("ADH::DIB","CALLING: executeScript (${strContext})...")
-            pf?.call(strContext)
+            pyFuncExecuteScript?.call(this, strContext)
             Log.d("ADH::DIB","RETURN: executeScript (${strContext})...")
         }
         catch (e: Exception) {
@@ -108,36 +116,59 @@ class AsyncDownloadHandler : AsyncTask<View, String?, String?>() {
             myErr = sRc // for the UI
             Log.i("ADH::DIB", "Stack: "+e.printStackTrace().toString() )
         }
-        finally {
-            Log.d("ADH::DIB", "UNUSED FINALLY?") // TODO
-        }
         //
         Log.i("ADH::DIB", "<- sRc: "+sRc)
         return sRc
     }
 
-    override fun onPostExecute(sRc: String?) {
+    override fun onPostExecute(sRc: String) {
+        Log.i("ADH::OPOST", "-> sRc: "+sRc+"; myErr: "+myErr)
         pb = MainActivity.myMain?.findViewById(R.id.progressBar) as ProgressBar
         pb!!.visibility = View.INVISIBLE
         //
-        val fab = MainActivity.myMain?.findViewById(R.id.fabDownload) as FloatingActionButton
+        var fab = MainActivity.myMain?.findViewById(R.id.fabDownload) as FloatingActionButton
         fab.isEnabled = true // Knopf nach Download wieder einschalten
         //
-        if( myErr == E_OK )
+        fab = MainActivity.myMain?.findViewById(R.id.fabFullscreen) as FloatingActionButton
+        fab.isEnabled = true // Knopf nach Download wieder einschalten
+        //
+        if( myErr == E_OK ) {
+            Snackbar.make(v, "Fertig", Snackbar.LENGTH_SHORT).setAction("Action", null).show()
             // Weiterleiten an Sekundärview
-            FullScreenForwarder(MainActivity.myMain!!,fab).showFullScreen()
+            FullScreenForwarder(MainActivity.myMain!!, fab).showFullScreen()
+        }
         else {
             // Fehlerausgabe
-            Log.d("ADH::OPOST", myErr)
-            Snackbar.make(v, myErr, Snackbar.LENGTH_LONG)
-                .setAction("Action", null).show()
+            Log.w("ADH::OPOST", myErr)
+            val snackbar = Snackbar.make(v, myErr, Snackbar.LENGTH_LONG)
+            val snackbarView = snackbar.view
+            val textView =
+                snackbarView.findViewById<View>(com.google.android.material.R.id.snackbar_text) as TextView
+            textView.maxLines = 3 // show multiple line
+            snackbar.setAction("Action", null).show()
             //
         }
+        Log.i("ADH::OPOST", "<-")
     }
 
-    override fun onProgressUpdate(vararg values: String?) {
-        pb = MainActivity.myMain?.findViewById(R.id.progressBar) as ProgressBar
-        pb!!.progress = values[0]!!.toInt()
+    // call from python
+    fun showSnackMsgFromPythonViaPublishProgress(s :String)
+    {
+        Log.i("ADH::SHOWMSG","-> publishProgressFromPython: ${s}")
+        publishProgress(s)
+        Log.i("ADH::SHOWMSG","<- publishProgressFromPython: ${s}")
+    }
+
+    override fun onProgressUpdate(vararg values: String) {
+        Log.i("ADH::OPRGUPD","count: ${values.size.toString()}")
+        //pb = MainActivity.myMain?.findViewById(R.id.progressBar) as ProgressBar
+        //pb!!.progress = values[0]!!.toInt()
+        //
+        val sRc : String = values[0]
+        Log.i("ADH::OPRGUPD","show snack '${sRc}'")
+        Snackbar.make(v, sRc, Snackbar.LENGTH_INDEFINITE)
+            .setAction("Action", null).show()
+        //
         super.onProgressUpdate(*values)
     }
 }

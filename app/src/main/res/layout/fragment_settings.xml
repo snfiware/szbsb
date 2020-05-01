@@ -28,7 +28,7 @@
                     android:layout_height="45dp"
                     android:ems="10"
                     android:hint="BSB-Kennung"
-                    android:inputType="none"
+                    android:inputType="none|number"
                     android:minHeight="45dp" />
 
                 <EditText
@@ -37,7 +37,7 @@
                     android:layout_height="45dp"
                     android:ems="10"
                     android:hint="Passwort"
-                    android:inputType="none|numberPassword"
+                    android:inputType="none|textWebPassword"
                     android:minHeight="45dp" />
 
                 <EditText

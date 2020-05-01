@@ -61,7 +61,10 @@ android {
             storeFile file(keystoreProperties['storeFile'])
             storePassword keystoreProperties['storePassword']
             v1SigningEnabled true
-            v2SigningEnabled true            // v2SigningEnabled false
+            // Weird error when enabled v2 on installing from apk (without adb)
+            v2SigningEnabled true
+            // But with v2 disabled apk install on api 28 fails
+            // v2SigningEnabled false
         }
     }
     buildTypes {

@@ -25,6 +25,15 @@ def getDate() {
     return formattedDate
 }
 
+// This switch is evaluated in the signing and build configuration and aims for the target to
+// use just only one build.gradle for public and private builds. For details about
+// problems encountered see comments at the usages of this variable. In brief: with this
+// switch set to true the installation from APK file (without play store) will work,
+// otherwise it may not.
+def bBuildForPublic = true // true or false
+// We do not ship the signing infos to the public - therefore release builds from github clones
+// will not work properly. Use debug build instead, change active build variant to debug. And
+// set this variable to true so android studio will use the debug standard signing.
 
 android {
     compileSdkVersion 29
@@ -42,7 +51,7 @@ android {
         minSdkVersion 16
         targetSdkVersion 29
         versionCode 1
-        versionName '1.1'
+        versionName '1.1.1'
 //        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         ndk {
             abiFilters "armeabi-v7a"
@@ -62,15 +71,24 @@ android {
             storePassword keystoreProperties['storePassword']
             v1SigningEnabled true
             // Weird error when enabled v2 on installing from apk (without adb)
-            v2SigningEnabled true
-            // But with v2 disabled apk install on api 28 fails
-            // v2SigningEnabled false
+            //v2SigningEnabled true
+            // But with v2 disabled adb install on api 28 fails
+            //v2SigningEnabled false
+            if( bBuildForPublic ) {
+                v2SigningEnabled false // installing from apk file works on api 19, 23, 28
+            } else {
+                v2SigningEnabled true  // installing with adb and android studio will work
+            }
         }
     }
     buildTypes {
         debug {
             versionNameSuffix = "-build" + getDate()
-            //signingConfig signingConfigs.release
+            if( bBuildForPublic ) {
+                // use no explicit signing configuration -> android studio will do for us
+            } else {
+                signingConfig signingConfigs.release
+            }
         }
         release {
             versionNameSuffix = "-release" + getDate()

@@ -1,22 +1,103 @@
 apply plugin: 'com.android.application'
-
 apply plugin: 'com.chaquo.python'
-
 apply plugin: 'kotlin-android'
-
 apply plugin: 'kotlin-android-extensions'
 
+// System.println( project.properties )
+
+// This default restricts the amount of debug build variants and therefore speeds up gradle.
+// Change if you are developping on a real-world device instead of an emulator. Most emus are x86.
+// Set this value to a valid ndk abiFilters and productFlavors accordingly - see below.
+def sDefaultDevAbiFilter = "armeabi-v7a"
+def sDefaultDevProductFlavor = "arm7"
+//def sDefaultDevAbiFilter = "x86"
+//def sDefaultDevProductFlavor = sDefaultDevAbiFilter
+
+android {
+    compileSdkVersion 29
+    buildToolsVersion "29.0.2"
+    flavorDimensions "default"
+
+    defaultConfig {
+        //multiDexEnabled true
+        applicationId "de.snfiware.szbsb"
+        minSdkVersion 16
+        targetSdkVersion 29
+        versionCode 1
+        versionName '1.2'
+        archivesBaseName = "szbsb-v${versionName}"
+        //
+        // Default dev setup (i.e. with emulator x86) to get rid of warnings pressing run:
+        //  Cannot build selected target ABI, no suitable splits configured
+        //ndk { abiFilters sDefaultDevAbiFilter }
+        //
+        flavorDimensions "scope", "abi"
+        productFlavors {
+            universal {
+                dimension "abi"
+                ndk {
+                    abiFilters "armeabi-v7a"
+                    abiFilters "arm64-v8a"
+                    abiFilters "x86"
+                    abiFilters "x86_64"
+                }
+            }
+            arm7 {
+                dimension "abi"
+                ndk { abiFilters "armeabi-v7a" }
+            }
+            arm64 {
+                dimension "abi"
+                ndk { abiFilters "arm64-v8a" }
+            }
+            x86 {
+                dimension "abi"
+                ndk { abiFilters "x86" }
+            }
+            x86_64 {
+                dimension "abi"
+                ndk { abiFilters "x86_64" }
+            }
+            Public {
+                dimension "scope"
+            }
+            Private {
+                dimension "scope"
+            }
+        }
+        variantFilter { variant ->
+            def names = variant.flavors*.name
+            //System.println("names: "+ names + "; buildType: " + variant.buildType.name)
+            if (!names.contains(sDefaultDevProductFlavor) && variant.buildType.name == "debug") {
+                // Gradle ignores any variants that satisfy the conditions above.
+                setIgnore(true)
+            }
+        }
+/*      splits {
+                abi {
+                    enable true
+                    //reset()
+                    include "x86", "armeabi-v7a", "armeabi-v8a", "x86_64"
+                    exclude "mips", "mips64"
+                    universalApk true
+                }
+            }
+        }
+*/
+        //
+        vectorDrawables {
+            useSupportLibrary true
+        }
+    }
+}
 
 // Create a variable called keystorePropertiesFile, and initialize it to your
 // keystore.properties file, in the rootProject folder.
 def keystorePropertiesFile = rootProject.file("secret/keystore.properties")
-
 // Initialize a new Properties() object called keystoreProperties.
 def keystoreProperties = new Properties()
-
 // Load your keystore.properties file into the keystoreProperties object.
 keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-
 
 // Helper function for adding build timestamp to the version name
 def getDate() {
@@ -25,42 +106,47 @@ def getDate() {
     return formattedDate
 }
 
-// This switch is evaluated in the signing and build configuration and aims for the target to
-// use just only one build.gradle for public and private builds. For details about
-// problems encountered see comments at the usages of this variable. In brief: with this
-// switch set to true the installation from APK file (without play store) will work,
+// The switch bBuildForPublic is evaluated in the signing and build configuration and aims for the
+// target to use just only one configuration for public and private, release and debug builds. For
+// details about problems encountered see comments at the usages of this variable. In brief: with
+// this switch set to true the installation from APK file (without play store) will work,
 // otherwise it may not.
-def bBuildForPublic = true // true or false
+def bBuildForPublic = project.gradle.startParameter.taskNames.any {it.toLowerCase().contains('public')}
+System.println("bBuildForPublic: "+bBuildForPublic.toString())
 // We do not ship the signing infos to the public - therefore release builds from github clones
-// will not work properly. Use debug build instead, change active build variant to debug. And
-// set this variable to true so android studio will use the debug standard signing.
+// will not work properly. Use debug build instead, change active build variant to public debug.
+// so bBuildForPublic is set to true and android studio will use the debug standard signing.
+def bIsReleaseBuild = project.gradle.startParameter.taskNames.any {it.toLowerCase().contains('release')}
+System.println("bIsReleaseBuild: "+bIsReleaseBuild.toString())
+//
+def bIsConfiguring = (project.gradle.startParameter.taskNames.size() == 0)
+System.println("bIsConfiguring: "+bIsConfiguring.toString())
+// signing infos needed? read section above if you encounter FileNotFoundException below
+if( !bIsConfiguring ) {
+if( bIsReleaseBuild || !bBuildForPublic /*'debug private' is signed with our own release key too*/ ) {
+    // needing signing infos - check for the jks file
+    //def s = keystoreProperties['storeTest']
+    def s = keystoreProperties['storeFile']
+    def f = file(s)
+    if( !f.exists() ) { // quick fix: use public debug build
+        throw new FileNotFoundException("file not found: '"+f.absolutePath+"'; input: '"+s+"'")
+    }
+}}
 
 android {
-    compileSdkVersion 29
-    buildToolsVersion "29.0.2"
-    flavorDimensions "default"
-    defaultConfig {
-        python {
-            buildPython "/usr/bin/python3"
-//            buildPython "py -3.7"
-            pip {
-                install "requests"
+    sourceSets {
+        main {
+            python {
+                srcDir "src/main/python"
+                //srcDirs = ["replacement/dir"]
             }
         }
-        applicationId "de.snfiware.szbsb"
-        minSdkVersion 16
-        targetSdkVersion 29
-        versionCode 1
-        versionName '1.1.1'
-//        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        ndk {
-            abiFilters "armeabi-v7a"
-            abiFilters "arm64-v8a"
-            abiFilters "x86"
-            abiFilters "x86_64"
-        }
-        vectorDrawables {
-            useSupportLibrary true
+    }
+    defaultConfig {
+        python { //https://chaquo.com/chaquopy/doc/current/android.html
+            buildPython "/snap/bin/python38"
+            pyc { src bIsReleaseBuild }
+            pip { install "requests" }
         }
     }
     signingConfigs {
@@ -74,9 +160,11 @@ android {
             //v2SigningEnabled true
             // But with v2 disabled adb install on api 28 fails
             //v2SigningEnabled false
-            if( bBuildForPublic ) {
+            if( bBuildForPublic || !bIsReleaseBuild ) {
+                System.println("XX: v2SigningEnabled false")
                 v2SigningEnabled false // installing from apk file works on api 19, 23, 28
             } else {
+                System.println("XX: v2SigningEnabled true")
                 v2SigningEnabled true  // installing with adb and android studio will work
             }
         }
@@ -85,25 +173,39 @@ android {
         debug {
             versionNameSuffix = "-build" + getDate()
             if( bBuildForPublic ) {
+                System.println("XX: use no explicit signing configuration")
                 // use no explicit signing configuration -> android studio will do for us
             } else {
+                System.println("XX: use signingConfigs.release though debug build")
                 signingConfig signingConfigs.release
             }
         }
         release {
+            System.println("XX: release uses release signing configuration")
+            //debuggable true
             versionNameSuffix = "-release" + getDate()
             //minifyEnabled true // leads to crash when loading pdfium and when loading chaquo
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
         }
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_1_8.toString()
+    }
 }
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.3.61"
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.3.72'
+    //implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.3.72'
     implementation 'androidx.appcompat:appcompat:1.1.0'
-    implementation 'androidx.core:core-ktx:1.1.0'
+    implementation 'androidx.core:core-ktx:1.2.0' // requires java1.8
+    //implementation 'androidx.core:core-ktx:1.1.0'
     implementation 'com.google.android.material:material:1.1.0'
     implementation 'androidx.lifecycle:lifecycle-extensions:2.2.0'
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'

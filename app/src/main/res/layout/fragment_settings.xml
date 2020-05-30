@@ -7,8 +7,9 @@
     tools:context=".ui.main.SettingsFragment">
 
     <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
         android:orientation="horizontal">
 
         <ScrollView
@@ -18,45 +19,87 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_margin="25dp"
-                android:minWidth="200dp"
-                android:orientation="vertical">
+                android:orientation="horizontal">
 
-                <EditText
-                    android:id="@+id/editTextBsbId"
-                    android:layout_width="match_parent"
-                    android:layout_height="45dp"
-                    android:ems="10"
-                    android:hint="BSB-Kennung"
-                    android:inputType="none|number"
-                    android:minHeight="45dp" />
+                <Space
+                    android:layout_width="30dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:minWidth="30dp" />
 
-                <EditText
-                    android:id="@+id/editTextPassword"
-                    android:layout_width="match_parent"
-                    android:layout_height="45dp"
-                    android:ems="10"
-                    android:hint="Passwort"
-                    android:inputType="none|textWebPassword"
-                    android:minHeight="45dp" />
-
-                <EditText
-                    android:id="@+id/editTextFolder"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:ems="10"
-                    android:hint="PDF(s) speichern unter"
-                    android:inputType="none"
-                    android:minHeight="45dp"
-                    android:textAlignment="viewStart" />
+                    android:layout_margin="25dp"
+                    android:minWidth="200dp"
+                    android:orientation="vertical">
+
+                    <EditText
+                        android:id="@+id/editTextBsbId"
+                        android:layout_width="match_parent"
+                        android:layout_height="45dp"
+                        android:ems="10"
+                        android:hint="BSB-Kennung"
+                        android:inputType="none|number"
+                        android:minHeight="45dp" />
+
+                    <EditText
+                        android:id="@+id/editTextPassword"
+                        android:layout_width="match_parent"
+                        android:layout_height="45dp"
+                        android:ems="10"
+                        android:hint="Passwort"
+                        android:inputType="none|textWebPassword"
+                        android:minHeight="45dp" />
+
+                    <EditText
+                        android:id="@+id/editTextFolder"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:ems="10"
+                        android:hint="PDF(s) speichern unter"
+                        android:inputType="none"
+                        android:minHeight="45dp"
+                        android:textAlignment="viewStart" />
+
+                    <RadioGroup
+                        android:id="@+id/rgBereich"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingLeft="20dp"
+                        android:paddingTop="30dp"
+                        android:paddingBottom="20dp">
+
+                        <RadioButton
+                            android:id="@+id/rbHauptausgabe"
+                            android:layout_width="200dp"
+                            android:layout_height="wrap_content"
+                            android:checked="true"
+                            android:text="Süddeutsche Zeitung Hauptausgabe" />
+
+                        <RadioButton
+                            android:id="@+id/rbMagazin"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Magazin" />
+
+                        <RadioButton
+                            android:id="@+id/rbExtra"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Extra" />
+                    </RadioGroup>
+                </LinearLayout>
+
+                <Space
+                    android:layout_width="300dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:minWidth="60dp" />
+
             </LinearLayout>
         </ScrollView>
 
-        <Space
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:minWidth="60dp" />
     </LinearLayout>
 
 </FrameLayout>

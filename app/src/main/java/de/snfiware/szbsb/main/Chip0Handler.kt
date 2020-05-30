@@ -15,11 +15,15 @@
  */
 package de.snfiware.szbsb.main
 
+import android.app.AlertDialog
 import android.view.View
 import android.widget.CompoundButton
 import androidx.core.view.children
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
+import de.snfiware.szbsb.MainActivity
+import de.snfiware.szbsb.fullscrn.DeleteHandler
+import de.snfiware.szbsb.util.AcmtLogger
 
 /**
  * Der Chip0Handler implementiert die Logik für die gesamte Chip-Gruppe, um den "Alle"-Knopf (C0) und
@@ -49,15 +53,31 @@ class Chip0Handler : CompoundButton.OnCheckedChangeListener {
         myChip0 = c0
         myChipGroup = cg
     }
-
+    //
     override fun onCheckedChanged(v: CompoundButton, isChecked: Boolean) {
         // protect flow from recursively handling event
         if(bCheckChangeIsProgrammatic)
             return
 
-        System.out.println( "view-cb: " + v.text + " was changed (by-user) to: " + isChecked.toString() )
+        CTAG.enter("onCheckedChanged","view-cb: " + v.text
+                + " was changed (by-user) to: " + isChecked.toString() )
         if( v.id == myChip0!!.id ) {
             // Es handelt sich um den Alles-Knopf (c0) der gerade seinen Status ändern
+            if( isChecked ) {
+                val dlgAlert: AlertDialog.Builder = AlertDialog.Builder(MainActivity.myMain)
+                dlgAlert.setMessage("Automatisierte Downloads widersprechen den BSB-Lizenzbedingungen.")
+                dlgAlert.setTitle("BSB-Lizenzbedingungen beachten")
+                dlgAlert.setPositiveButton(
+                    "Verstanden"
+                ) { _,_ -> //dialog, which ->
+                    DeleteHandler.CTAG.d("Dialog Ok was clicked...")
+                    //fsa.myMenu.performIdentifierAction(R.id.mi_delete_older_180, 0);
+                }
+                dlgAlert.setCancelable(false)
+                DeleteHandler.CTAG.d("show dialog...")
+                dlgAlert.create().show()
+            }
+            //
             for (oneChild in myChipGroup!!.children){
                 var oneChip : Chip?
                 try {
@@ -99,11 +119,16 @@ class Chip0Handler : CompoundButton.OnCheckedChangeListener {
                 setCCIP(false)
             }
         }
+        CTAG.leave()
     }
+    ////////////////////////////////////////////////////////////////////////////
     companion object {
+        val CTAG = AcmtLogger("C0H")
+        //
         private var bCheckChangeIsProgrammatic :Boolean = false
         //
         fun setCCIP( b :Boolean ) { // doppelt setzen verhindern
+            //CTAG.log_("setCCIP to: $b; current is: $bCheckChangeIsProgrammatic")
             if( b == bCheckChangeIsProgrammatic) {
                 throw Exception("double set/reset is distorted flow")
             }

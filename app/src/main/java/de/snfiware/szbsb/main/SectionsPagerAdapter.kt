@@ -1,17 +1,17 @@
 package de.snfiware.szbsb.main
 
 import android.content.Context
-import android.util.Log
 import android.view.View
 import android.widget.TextView
 import androidx.core.view.get
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentPagerAdapter
-import com.example.sztab.R
+import de.snfiware.szbsb.R
 import de.snfiware.szbsb.util.assert
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
+import de.snfiware.szbsb.util.AcmtLogger
 
 
 /**PlaceholderFragment.newInstance(position + 1000)
@@ -25,7 +25,7 @@ class SectionsPagerAdapter(private val context: Context, fm: FragmentManager) :
         var f = PlaceholderFragment.newInstance(
             position
         )
-        Log.i("SPA::getItem", "writing pos: "+position+
+        CTAG.i("getItem - writing pos: "+position+
                 " new: "+f.toString() + " old: "+ FRAGS[position].toString())
         FRAGS[position] = f
         return f
@@ -40,6 +40,7 @@ class SectionsPagerAdapter(private val context: Context, fm: FragmentManager) :
     }
 
     companion object {
+        val CTAG = AcmtLogger("SPA")
         private val TAB_TITLES = arrayOf(
             R.string.tab_text_1,
             R.string.tab_text_2,
@@ -77,7 +78,7 @@ class SectionsPagerAdapter(private val context: Context, fm: FragmentManager) :
         }
 
         fun getChipGroupByResId( resId :Int ) : ChipGroup {
-            var position = -1
+            var position: Int
             if(      resId == R.id.cgTopics ) position = 1
             else if( resId == R.id.cgPages  ) position = 2
             else throw UnknownError("Es sind nur zwei Chip Groups bekannt")

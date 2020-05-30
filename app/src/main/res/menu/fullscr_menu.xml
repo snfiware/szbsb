@@ -20,4 +20,14 @@
         android:title="Alles löschen..."
         app:showAsAction="never" />
 
+    <item
+        android:id="@+id/mi_delete_older_90"
+        android:title="Älter als 90 Tage löschen"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/mi_delete_older_180"
+        android:title="BSB-Pflichtlöschung (180 Tage)"
+        app:showAsAction="never" />
+
 </menu>

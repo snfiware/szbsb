@@ -15,11 +15,17 @@
  */
 package de.snfiware.szbsb.fullscrn
 
-import android.util.Log
+import android.graphics.Color
 import android.view.View
+import android.view.ViewGroup
 import android.widget.*
-import com.example.sztab.R
+import de.snfiware.szbsb.MainActivity
+import de.snfiware.szbsb.R
+import de.snfiware.szbsb.main.AsyncDownloadHandler
+import de.snfiware.szbsb.util.AcmtLogger
 import java.io.File
+
+typealias tStringTree = MutableList<Pair<String,MutableList<File>>>
 
 /**
  * DatePageNavigator implementiert für den Fullscreen-Modus ein zweistufiges Navigationsmenü.
@@ -32,105 +38,169 @@ import java.io.File
  * Diese Klasse kümmert sich um das Menü samt dem einfachen Eventhandling und das Modell.
  * Die Wisch-Gesten-Steuerung (swipe) ist ausgelagert (FullscreenActivity).
  */
-class DatePageNavigator { //}: View.OnClickListener { //AdapterView.OnItemSelectedListener {
-    var myFullScrAct : FullscreenActivity
-    var myRootDirString :String = ""
-    var myRootDir :File
+class DatePageNavigator {
+    companion object {val CTAG = AcmtLogger("DPN") }
     //
-    var myBtnDatLinks  :Button
-    var myBtnDatRechts :Button
-    var myBtnPdfLinks  :Button
-    var myBtnPdfRechts :Button
+    val myFullScrAct :FullscreenActivity
+    val myRootDirString :String
+    val myRootDir :File
     //
-    var myPdfView : MyPdfView
-    var myTxtInf :TextView // Info-Textfeld im Zentrum z.B. wenn keine PDFs da sind
-    var myDateSpinner :Spinner // Download-Datum; entspricht einem Ordner im Verzeichnis myRootDir
-    var myPageSpinner :Spinner // entspricht einer Datei im Ordner (=einer darstellbaren Seite)
+    val myBtnDatLinks  :Button
+    val myBtnDatRechts :Button
+    val myBtnPdfLinks  :Button
+    val myBtnPdfRechts :Button
     //
-    var myStringTree : MutableList<Pair<String,MutableList<File>>> = mutableListOf()
-    var myCurDatePointer : Int = -1
-    var myCurPagePointer : Int = -1
+    val myPdfView :MyPdfView
+    val myTxtInf :TextView // Info-Textfeld im Zentrum z.B. wenn keine PDFs da sind
+    val myDateSpinner :Spinner // Download-Datum; entspricht einem Ordner im Verzeichnis myRootDir
+    val myPageSpinner :Spinner // entspricht einer Datei im Ordner (=einer darstellbaren Seite)
     //
-    constructor(fullScrAct : FullscreenActivity, myRootDir :String ) {
-        Log.i("DPN::ctor","->")
+    private val pattern = "yyyy-MM-dd"
+    val myStringTree :tStringTree = mutableListOf()
+    var myCurDatePointer :Int = -1
+    var myCurPagePointer :Int = -1
+    //
+    val list01 :tStringList // Vorwarnliste
+    val list02 :tStringList // Abgelaufen
+    //
+    constructor(fullScrAct : FullscreenActivity, sMyRootDir :String ) {
+        CTAG.enter("ctor","fullScrAct: $fullScrAct; sMyRootDir: $sMyRootDir")
         myFullScrAct = fullScrAct
-        myRootDirString = myRootDir
+        myRootDirString = sMyRootDir
         //
-        val f = File(myRootDir)
-        Log.d("DPN::ctor", "canRead '" + myRootDir + "':" + f.canRead().toString() + "; isDir: " + f.isDirectory.toString() )
-        this.myRootDir = f
+        val f = File(myRootDirString)
+        CTAG.log("canRead '" + myRootDirString + "':" + f.canRead().toString() + "; isDir: " + f.isDirectory.toString() )
+        myRootDir = f
         //
-        Log.v("DPN::ctor","registering navi listeners...")
+        CTAG.log("registering navi listeners...")
         myBtnDatLinks  = myFullScrAct.findViewById<Button>(R.id.buttonFullScrnDatumLinks ); myBtnDatLinks.setOnClickListener  { onClickDatumLinks() }
         myBtnDatRechts = myFullScrAct.findViewById<Button>(R.id.buttonFullScrnDatumRechts); myBtnDatRechts.setOnClickListener { onClickDatumRechts() }
         myBtnPdfLinks  = myFullScrAct.findViewById<Button>(R.id.buttonFullScrnPdfLinks   ); myBtnPdfLinks.setOnClickListener  { onClickPdfLinks() }
         myBtnPdfRechts = myFullScrAct.findViewById<Button>(R.id.buttonFullScrnPdfRechts  ); myBtnPdfRechts.setOnClickListener { onClickPdfRechts() }
-        Log.v("DPN::ctor","registered listeners.")
+        CTAG.log("registered listeners.")
         //
         myPdfView= myFullScrAct.findViewById<MyPdfView> (R.id.fullscreen_content)
         myTxtInf = myFullScrAct.findViewById<TextView>(R.id.textViewFullScrnInfo)
         myDateSpinner = myFullScrAct.findViewById<Spinner>(R.id.spinnerFullScrnDatum)
         myPageSpinner = myFullScrAct.findViewById<Spinner>(R.id.spinnerFullScrnPdf)
         //
+        CTAG.log("registering icon listeners...")
         val icon1 = myFullScrAct.findViewById<ImageView>(R.id.imageViewDatum)
-        icon1.setOnClickListener { v -> myDateSpinner.performClick() }
+        icon1.setOnClickListener { _ -> myDateSpinner.performClick() }
         val icon2 = myFullScrAct.findViewById<ImageView>(R.id.imageViewPdf)
-        icon2.setOnClickListener { v -> myPageSpinner.performClick() }
+        icon2.setOnClickListener { _ -> myPageSpinner.performClick() }
         //
+        CTAG.log("populateTree...")
         populateTree()
         // Initialbefüllung des Datum Spinners - der ist mengentechnisch stabil
         // über die gesamte Lebenszeit der FullscreenView (sie wird jedes mal neu angelegt, wenn
         // zwischen den Activities gewechselt wird)
         //
-        Log.d("DPN::ctor","Adapter for DateSpinner...") // der füllt die Daten in die UI
+        CTAG.log("Fill Adapter for DateSpinner...") // der füllt die Daten in die UI
         var i = 0
-        val aa : ArrayAdapter<String> = ArrayAdapter<String>(
-            myFullScrAct.applicationContext, android.R.layout.simple_spinner_item)
+        val aa = getArrayAdapter()
         for( s in myStringTree ) {
             i += 1
-            aa.add( s.first + " (${i.toString()}/${myStringTree.size})"
+            aa.add( s.first
+//                    + " #${i.toString()}"
+                    + " (${i.toString()}/${myStringTree.size})"
 //                    + " - ${s.second.size} PDF(s)"
                     + " [${s.second.size}]"
             )
         }
         aa.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        if( aa.count > 0)
+        CTAG.log("Set Adapter and toggleSpinnerListeners...")
+        if( aa.count > 0) {
             myDateSpinner.setAdapter(aa)
+        }
+        //
+        list01 = DeleteHandler.getListOfOverduePdfFolders(myStringTree, pattern, 90).map { it.substring(0,10) }
+        list02 = DeleteHandler.getListOfOverduePdfFolders(myStringTree, pattern,180).map { it.substring(0,10) }
+        CTAG.log("list01: $list01; list02: $list02")
         //
         //if (FullscreenActivity.fsa.myNavi == null) {
         toggleSpinnerListeners(true)
         //}
-        Log.i("DPN::ctor","<-")
+        CTAG.leave()
     }
-
+    //
+    private fun getArrayAdapter() : ArrayAdapter<String> {
+        CTAG.enter("getAAObj")
+        val aa = object // create an unnamed derived class, override method and return object of this class
+        /*START-iCLASS*/:ArrayAdapter<String>(myFullScrAct.applicationContext, android.R.layout.simple_spinner_item) {
+            //
+            fun markText(position: Int, v: View?, parent: ViewGroup): Int {
+                var iApplied = -99
+                if(v != null) {
+                    val tv = v as TextView
+                    val rowcontent = tv.text.substring(0,10)
+                    CTAG.log("rowcontent: ${rowcontent}; list01: $list01; list02: $list02")
+                    if(list02.contains(rowcontent)) {
+                        iApplied = 2
+                        tv.setBackgroundColor(Color.RED)
+                    }
+                    else if(list01.contains(rowcontent)) {
+                        iApplied = 1
+                        tv.setTextColor(Color.RED)
+                    }
+                }
+                return(iApplied)
+            }
+            //
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                CTAG.enter("getDDView", "position: $position; convertView: $convertView; parent: $parent")
+                val v = super.getView(position, convertView, parent)
+                val iApplied = markText(position, v, parent)
+                CTAG.leave("iApplied: $iApplied; v: $v")
+                return v
+            }
+            //
+            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+                CTAG.enter("getDDView", "position: $position; convertView: $convertView; parent: $parent")
+                val v = super.getDropDownView(position, convertView, parent)
+                val iApplied = markText(position, v, parent)
+                CTAG.leave("iApplied: $iApplied; v: $v")
+                return v
+            }
+        /*END-iCLASS*/}
+        CTAG.leave()
+        return(aa)
+    }
+    //
     private fun populateTree() {
-        Log.i("DPN::poTr","->")
-        if( myRootDir.exists() && myRootDir.canRead() && myRootDir.list().size > 0 )
-            for( f1 in myRootDir.listFiles().sorted() )
-                if( f1.isDirectory() && f1.canRead() ) {
-                    Log.d("DPN::poTr", "f1.name: " + f1.name + " initializing date collection..." )
+        CTAG.enter("populateTree")
+        if( myRootDir.exists() && myRootDir.canRead() && myRootDir.list().size > 0 ) {
+            CTAG.d("accessible rootDir")
+            for (f1 in myRootDir.listFiles().sorted()) {
+                if (f1.isDirectory() && f1.canRead()) {
+                    CTAG.enter("populatePdf", "f1.name: " + f1.name + " initializing date collection...")
                     val mlo = mutableListOf<File>()
                     myStringTree.add(Pair(f1.name, mlo))
                     //myTxtDat.setTag(0,f1.name)
                     //
-                    Log.d("DPN::poTr", "f1.name: " + f1.name + " looping over contents..." )
-                    for( f2 in f1.listFiles().sorted() )
-                        if( f2.isFile() && f2.canRead() && f2.name.contains(
+                    CTAG.d("f1.name: " + f1.name + " looping over contents...")
+                    for (f2 in f1.listFiles().sorted()) {
+                        if (f2.isFile() && f2.canRead() && f2.name.contains(
                                 ".pdf",
                                 ignoreCase = true
                             )
                         ) {
                             mlo.add(f2)
                             //myTxtPdf.setTag(0,f2)
-                            Log.d("DPN::poTr", "f2.name: " + f2.name + " added" )
+                            //CTAG.d( "f2.name: " + f2.name + " added")
                         }
+                    }
+                    CTAG.leave("populated tree node '${f1.name}' with ${mlo.size} files.")
                 }
-        Log.i("DPN::poTr", "<- populated directories: " + myStringTree.size )
+            }
+        }
+        CTAG.leave("populated directories: " + myStringTree.size )
     }
-
+    // looks duplicate but is for date + page slightly different - both needs to be registered...
     private fun toggleSpinnerListeners( bStartListening : Boolean ) {
+        CTAG.enter("toggleSL","Date + Page; bListening: $bStartListening")
         if( bStartListening ) {
-            Log.d("DPN::toggleSL", "Register Listeners on DateSpinner...")
+            CTAG.d("Register Listeners on DateSpinner...")
             myDateSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(
                     parent: AdapterView<*>?,
@@ -139,22 +209,21 @@ class DatePageNavigator { //}: View.OnClickListener { //AdapterView.OnItemSelect
                     id: Long
                 ) {
                     val curIdxPosition = getCurDatePointerIndex()
-                    Log.i(
-                        "DPN:Date:onItemSelected",
-                        "v: ${view.toString()}; stack-pos: ${position.toString()}" +
-                                "cur-pos: ${curIdxPosition.toString()}"
+                    CTAG.i("Date:onItemSelected - " +
+                        "v: ${view.toString()}; pos: ${position.toString()}" +
+                                "cur-pos: ${curIdxPosition.toString()} - calling setCur..."
                     )
-                    if( position != curIdxPosition )
+                    if( position != curIdxPosition ) {
                         setCurPointer(position, 0)
-                    // else // ignoring
+                    } // else // ignoring
                 }
 
                 override fun onNothingSelected(parent: AdapterView<*>?) {
-                    Log.i("DPN:Date:onNthngSel", " ")
+                    CTAG.i("Date:onNthngSel")
                 }
             }
             //
-            Log.d("DPN::toggleSL", "Register Listeners on PageSpinner...")
+            CTAG.d("Register Listeners on PageSpinner...")
             myPageSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(
                     parent: AdapterView<*>?,
@@ -163,36 +232,45 @@ class DatePageNavigator { //}: View.OnClickListener { //AdapterView.OnItemSelect
                     id: Long
                 ) {
                     val curIdxPosition = getCurPagePointerIndex()
-                    Log.i(
-                        "DPN:Page:onItemSelected",
+                    CTAG.i( "Page:onItemSelected - " +
                         "v: ${view.toString()}; pos: ${position.toString()}" +
-                                "cur-pos: ${curIdxPosition.toString()}"
+                                "cur-pos: ${curIdxPosition.toString()} - calling setCur..."
                     )
-                    if( position != curIdxPosition )
+                    if( position != curIdxPosition ) {
                         setCurPointer(myCurDatePointer, position)
-                    // else // ignoring
+                    } // else // ignoring
                 }
 
                 override fun onNothingSelected(parent: AdapterView<*>?) {
-                    Log.i("DPN:Page:onNthngSel", " ")
+                    CTAG.i("Page:onNthngSel")
                 }
             }
         } else {
-            Log.d("DPN::toggleSL", "Stop Listening on Spinners...")
             myDateSpinner.onItemSelectedListener = null
             myPageSpinner.onItemSelectedListener = null
         }
+        CTAG.leave()
     }
-
+    //
     fun isLastPdfInFolderOrFolderAlreadyEmpty() : Boolean {
         var bRc : Boolean = myStringTree.get(myCurDatePointer).second.size == 1 ||
                             myStringTree.get(myCurDatePointer).second.size == 0
+        CTAG.i("isLastPdfInFolderOrFolderAlreadyEmpty: $bRc")
         return bRc
     }
+    //
     fun isLastFolderInRoot() : Boolean {
         var bRc : Boolean = myRootDir.list().size == 1
+        CTAG.i("isLastFolderInRoot: $bRc")
         return bRc
     }
+    //
+    fun isRootEmpty() : Boolean {
+        var bRc : Boolean = myRootDir.list().size == 0
+        CTAG.i("isRootEmpty: $bRc")
+        return bRc
+    }
+    //
     fun deleteCurPdf( d :DeleteHandler ) : Boolean {
         if( myCurPagePointer == myStringTree.get(myCurDatePointer).second.lastIndex ) {
             // letztes
@@ -206,9 +284,10 @@ class DatePageNavigator { //}: View.OnClickListener { //AdapterView.OnItemSelect
         //
         val f :File = myStringTree.get(myCurDatePointer).second.get(myCurPagePointer)
         val bRc = f.delete()
-        Log.i("DPN::deleteCurPdf", "success: " + bRc.toString() + "; file: " + f.absolutePath)
+        CTAG.i("deleteCurPdf - success: " + bRc.toString() + "; file: " + f.absolutePath)
         return bRc
     }
+    //
     fun deleteCurDateFolder( d :DeleteHandler ) : Boolean {
         if( myCurDatePointer == myStringTree.lastIndex ) {
             // letztes
@@ -223,18 +302,44 @@ class DatePageNavigator { //}: View.OnClickListener { //AdapterView.OnItemSelect
         val dir :String = myStringTree.get(myCurDatePointer).first
         val f = File(myRootDir.absolutePath + "/" + dir)
         val bRc = f.deleteRecursively()
-        Log.i("DPN::delCurDateFldr", "success: " + bRc.toString() + "; file: " + f.absolutePath)
+        CTAG.i("delCurDateFldr - success: " + bRc.toString() + "; file: " + f.absolutePath)
         return bRc
     }
+    //
+    fun deleteFolders( d :DeleteHandler, list :tStringList ) : Boolean {
+        CTAG.enter("deleteFolders","list: $list")
+        var bRc = false
+        var i = 0
+        d.myCurDatePointer = 0
+        d.myCurPagePointer = 0
+        if(myRootDir.exists() && myRootDir.canRead() && myRootDir.list().size > 0) {
+            for(f1 in myRootDir.listFiles().sorted()) {
+                val dirName = f1.name.substring(0,10)
+                if(list.contains(dirName) && f1.isDirectory() && f1.canWrite()) {
+                    bRc = f1.deleteRecursively()
+                    if(bRc) {
+                        ++i
+                    } else {
+                        CTAG.e("error deleting '${f1.absolutePath}'")
+                        break
+                    }
+                }
+            }
+        }
+        CTAG.leave("deleted $i folders")
+        return(bRc)
+    }
+    //
     fun getCurRootFolder() : File {
         var fRc :File? = myRootDir
         return fRc!!
     }
+    //
     private fun getCurDatePointerIndex() :Int {return(myCurDatePointer)}
     private fun getCurPagePointerIndex() :Int {return(myCurPagePointer)}
     private fun setCurPointer( idxDate :Int, idxPage :Int ) {
-        Log.i("DPN::setCurPointer", "-> myRootDir.readable: " + myRootDir.canRead().toString() +
-            "; idxDate: ${idxDate.toString()}; idxPage: ${idxPage.toString()}")
+        CTAG.enter("setCurPointer", "myRootDir.readable: ${myRootDir.canRead()}"+
+                "; idxDate: $idxDate; idxPage: $idxPage")
         //
         var iDate = idxDate
         var iPage = idxPage
@@ -248,7 +353,7 @@ class DatePageNavigator { //}: View.OnClickListener { //AdapterView.OnItemSelect
             //
             if( iPage < 0 ) iPage = myStringTree.get(iDate).second.lastIndex
             if( iPage > myStringTree.get(iDate).second.lastIndex ) iPage = 0
-            Log.d( "DPN::setCurPointer", "after Rollover - " +
+            CTAG.d("after Rollover - " +
                     "iDate: ${iDate.toString()}; iPage: ${iPage.toString()}" )
             //
             // Get file at desired location
@@ -260,11 +365,20 @@ class DatePageNavigator { //}: View.OnClickListener { //AdapterView.OnItemSelect
             }
             /////////////////////////////
             if( bPageIdxIsValid ) {
-                myPdfView.loadPdfFromFile(f) // start loading pdf
-                myPdfView.bringToFront()
-                myTxtInf.visibility = View.INVISIBLE
+                if(f.canRead()) {
+                    myPdfView.loadPdfFromFile(f) // start loading pdf
+                    myPdfView.bringToFront()
+                    myTxtInf.visibility = View.INVISIBLE
+                } else {
+                    myPdfView.recycle() // reset to empty
+                    //
+                    myTxtInf.text = "PDF '" + f.name +
+                            "' konnte nicht gelesen werden."
+                    myTxtInf.visibility = View.VISIBLE
+                    myTxtInf.bringToFront()
+                }
             } else {
-                myPdfView.recycle() // or reset to empty
+                myPdfView.recycle() // reset to empty
                 //
                 myTxtInf.text = "Keine PDFs unter '" + myRootDirString + "/" + dir +
                      "' oder fehlende Berechtigungen."
@@ -272,54 +386,102 @@ class DatePageNavigator { //}: View.OnClickListener { //AdapterView.OnItemSelect
                 myTxtInf.bringToFront()
             }
             //
-            Log.d("DPM::setCurPointer","setting pointers, adjust spinners...")
+            CTAG.d("setting pointers, adjust spinners...")
             if( myCurDatePointer != iDate ) {
-                Log.d("DPM::setCurPointer",
-                    "date pointer changing from ${myCurDatePointer.toString()} to ${iDate.toString()}")
+                CTAG.d("date pointer changing from ${myCurDatePointer} to ${iDate}")
                 myCurDatePointer = iDate
                 myDateSpinner.setSelection(iDate)
                 //
                 // (re)fill Pages Spinner
-                val aa : ArrayAdapter<String> = ArrayAdapter<String>(
-                    myFullScrAct.applicationContext, android.R.layout.simple_spinner_item)
+                val aa = getArrayAdapter()
                 val pagesList = myStringTree.get(iDate).second
                 var i = 0
-                for( f in pagesList ) {
+                for( pdf in pagesList ) {
                     i += 1
-                    aa.add( f.name.removeSuffix(".pdf") + " (${i.toString()}/${pagesList.size})" )
+                    aa.add( pdf.name.removeSuffix(".pdf") + " (${i.toString()}/${pagesList.size})" )
                 }
                 aa.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                 myPageSpinner.setAdapter(aa)
             }
             //
-            Log.d("DPN::setCurPointer",
-                "page pointer changing from ${myCurPagePointer.toString()} to ${iPage.toString()}")
+            CTAG.d("page pointer changing from ${myCurPagePointer} to ${iPage}")
             myCurPagePointer = iPage
             myPageSpinner.setSelection(iPage)
             //
         } catch (e: Exception) {
-            Log.e("DPN::SMC", "EXC! " + e.message)
+            CTAG.e("EXC! " + e.message)
             //
             myTxtInf.text = "Interner Fehler."
             myTxtInf.visibility = View.VISIBLE
             myTxtInf.bringToFront()
         }
         //
-        Log.i("DPN::setCurPointer", "<- now showing dir: " + dir
+        CTAG.leave("now showing dir: " + dir
                 + "; PDF: " + fn + "; within: "+myRootDir.absolutePath)
     }
-
+    //
     fun showMostCurrentPdf() {
-        Log.i("DPNavi","showMostCurrentPdf; index: ${myStringTree.lastIndex}")
-        setCurPointer(myStringTree.lastIndex,0)
+        var step = "init"
+        val fn = AsyncDownloadHandler.sFirstDownloadedFile
+        CTAG.enter("showMostCurPdf", "ADH.sFirstDownloadedFile: '$fn'")
+        //
+        if( fn == "") {
+            step = "no download in current session"
+            val sel = MainActivity.getCheckedRadioButtonId()
+            val folder = when(sel){
+                R.id.rbHauptausgabe -> "SZ"
+                R.id.rbMagazin -> "Magazin"
+                R.id.rbExtra -> "Extra"
+                else -> ""
+            }
+            step += " - selecting most recent '${folder}'"
+            CTAG.log(step)
+            val idx = myStringTree.indexOf(myStringTree.findLast { T -> T.first.endsWith(folder) })
+            setCurPointer(idx, 0)
+        }
+        else {
+            step = "lookup file in myStringTree..."
+            CTAG.log(step)
+            val f = File(fn)
+            val folder = f.parentFile.name
+            var i = 0
+            var j = 0
+            for( dat in myStringTree ) { // .sortedByDescending { T -> T.first } # would be better for performance - but indexes get mixed up
+                if(folder == dat.first) {
+                    val pagesList = dat.second
+                    j = 0
+                    for (pdf in pagesList) {
+                        if (pdf.name == f.name) {
+                            CTAG.log("found file in myStringTree at idx: $i/$j")
+                            break
+                        }
+                        j += 1
+                    }
+                    if(j < pagesList.size) {
+                        break
+                    }
+                }
+                i += 1
+            }
+            if(i < myStringTree.size) {
+                step = "download present in current session - showing first pdf"
+                setCurPointer(i, j)
+            } else {
+                step = "download present in current session - BUT NOT FOUND - showing standard"
+                CTAG.e(step)
+                setCurPointer(myStringTree.lastIndex, 0)
+            }
+        }
+        CTAG.leave(step)
     }
+    //
     fun showNextPdfAfterDelete(d: DeleteHandler) {
-        Log.i("DPNavi","showNextPdfAfterDelete; index: ${myStringTree.lastIndex}")
+        CTAG.i("showNextPdfAfterDelete")
         setCurPointer(d.myCurDatePointer,d.myCurPagePointer)
     }
-
-    fun onClickDatumLinks()  {Log.i("DPNavi","DatumLinks"); setCurPointer(myCurDatePointer - 1, 0)}
-    fun onClickDatumRechts() {Log.i("DPNavi","DatumRechts"); setCurPointer(myCurDatePointer + 1, 0)}
-    fun onClickPdfLinks()    {Log.i("DPNavi","PdfLinks"); setCurPointer(myCurDatePointer,myCurPagePointer - 1)}
-    fun onClickPdfRechts()   {Log.i("DPNavi","PdfRechts"); setCurPointer(myCurDatePointer,myCurPagePointer + 1)}
+    //
+    fun onClickDatumLinks()  {CTAG.i("DatumLinks") ; setCurPointer(myCurDatePointer - 1, 0)}
+    fun onClickDatumRechts() {CTAG.i("DatumRechts"); setCurPointer(myCurDatePointer + 1, 0)}
+    fun onClickPdfLinks()    {CTAG.i("PdfLinks")   ; setCurPointer(myCurDatePointer,myCurPagePointer - 1)}
+    fun onClickPdfRechts()   {CTAG.i("PdfRechts")  ; setCurPointer(myCurDatePointer,myCurPagePointer + 1)}
 }

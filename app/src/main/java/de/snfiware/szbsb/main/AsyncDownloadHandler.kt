@@ -15,19 +15,25 @@
  */
 package de.snfiware.szbsb.main
 
+import android.app.DownloadManager
+import android.content.Context
+import android.media.MediaScannerConnection
 import android.os.AsyncTask
-import android.util.Log
 import android.view.View
 import android.widget.ProgressBar
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.TextView
 import com.chaquo.python.PyObject
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
-import com.example.sztab.R
+import de.snfiware.szbsb.R
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.snackbar.Snackbar
 import de.snfiware.szbsb.FullScreenForwarder
 import de.snfiware.szbsb.MainActivity
+import de.snfiware.szbsb.util.AcmtLogger
+import java.io.File
 
 
 /**
@@ -44,40 +50,28 @@ import de.snfiware.szbsb.MainActivity
  * https://stackoverflow.com/questions/9671546/asynctask-android-example (picture in the middle)
  */
 class AsyncDownloadHandler : AsyncTask<String, String, String>() {
+    companion object {
+        val CTAG = AcmtLogger("ADH",bSeparateStack = true)
+        val CTAGUI = AcmtLogger("AUI")
+        //
+        var sFirstDownloadedFile: String = "" // the one to focus
+    }
     //
     var pb: ProgressBar? = null
-    // var pyModule: PyObject? = null
     var pyFuncExecuteScript: PyObject? = null
+    var sAreaToLoad: String? = null
     //
     val E_OK = "OK"
     var myErr :String = E_OK
     //
     lateinit var v :View
     fun setView (v:View) {
-        Log.d("ADH::SetView","view: "+v.toString())
+        CTAG.d_("SetView ${v}; old: ${when(this::v.isInitialized) {true -> this.v; else -> "n/a"}}")
         this.v=v
     }
 
-    private fun initChaquo() {
-        Log.i("ADH::INICHAQ","->")
-        if (!Python.isStarted()) {
-            Log.i("ADH::INICHAQ","Starting Chaquo...")
-            Python.start(AndroidPlatform(MainActivity.myMain!!.applicationContext))
-        }
-        // this seems to be neccessary each time before using executeScript...
-        Log.d("ADH::OPRE","getInst...")
-        val pi = Python.getInstance()
-        Log.d("ADH::OPRE","getModule...")
-        val pyModule = pi.getModule("sz")
-        //
-        Log.d("ADH::OPRE","get: executeScript...")
-        pyFuncExecuteScript = pyModule?.get("executeScript")
-        //
-        Log.i("ADH::INICHAQ","<-")
-    }
-
     override fun onPreExecute() {
-        Log.i("ADH::OPRE","->")
+        CTAGUI.enter("onPreExecute", "switch off buttons and show progress bar")
         super.onPreExecute()
         //
         var fab = MainActivity.myMain?.findViewById(R.id.fabDownload) as FloatingActionButton
@@ -89,11 +83,33 @@ class AsyncDownloadHandler : AsyncTask<String, String, String>() {
         pb = MainActivity.myMain?.findViewById(R.id.progressBar) as ProgressBar
         pb!!.visibility = View.VISIBLE
         pb!!.bringToFront()
-        Log.i("ADH::OPRE","<-")
+        //
+        // have to be stored in member variable thus the background task has no access to UI
+        sAreaToLoad = MainActivity.getCheckedRadioButtonCaption()
+        //
+        CTAGUI.leave()
+    }
+
+    private fun initChaquo() {
+        CTAG.enter("initChaquo")
+        if (!Python.isStarted()) {
+            CTAG.i("Starting Chaquo...")
+            Python.start(AndroidPlatform(MainActivity.myMain!!.applicationContext))
+        }
+        // this seems to be neccessary each time before using executeScript...
+        CTAG.d("getInst...")
+        val pi = Python.getInstance()
+        CTAG.d("getModule...")
+        val pyModule = pi.getModule("sz")
+        //
+        CTAG.d("get: executeScript...")
+        pyFuncExecuteScript = pyModule?.get("executeScript")
+        //
+        CTAG.leave()
     }
 
     override fun doInBackground(vararg va: String): String? {
-        Log.i("ADH::DIB", "-> va: "+va.toString())
+        CTAG.enter("doInBackground","va: "+va.toString())
         myErr = E_OK
         //v = va.get(0) as View
         publishProgress( "Initialisierung..." )
@@ -106,23 +122,82 @@ class AsyncDownloadHandler : AsyncTask<String, String, String>() {
         var sRc :String = "PDF(s) wurden erfolgreich heruntergeladen"
         try {
             val strContext = MainActivity.nextCounter().toString()
-            Log.d("ADH::DIB","CALLING: executeScript (${strContext})...")
-            pyFuncExecuteScript?.call(this, strContext)
-            Log.d("ADH::DIB","RETURN: executeScript (${strContext})...")
+            //
+            CTAG.i("CALLING: executeScript (${strContext}; ${sAreaToLoad})...")
+            pyFuncExecuteScript?.call(this, strContext, sAreaToLoad)
+            CTAG.i("RETURN: executeScript (${strContext}; ${sAreaToLoad}).")
         }
         catch (e: Exception) {
             sRc = e.message!! //printStackTrace().toString()
-            Log.e("ADH::DIB", "UI-Msg: "+sRc)
+            CTAG.e( "UI-Msg: "+sRc)
             myErr = sRc // for the UI
-            Log.i("ADH::DIB", "Stack: "+e.printStackTrace().toString() )
+            CTAG.i( "Stack: "+e.printStackTrace().toString() )
         }
         //
-        Log.i("ADH::DIB", "<- sRc: "+sRc)
+        CTAG.leave(sRc)
         return sRc
     }
 
+    // call from python
+    fun publishFileFromPythonToAndroid(filepath :String, isFirst :Boolean, isLast :Boolean)
+    {
+        val file = File(filepath)
+        val mimeType = "application/pdf"
+        val s = file.name
+        CTAG.enter("pubFileFromPy","isLast: ${isLast.toString()} ${s}")
+        //
+        if( false ) {
+            val dm = MainActivity.myMain?.baseContext!!.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            //
+            CTAG.d("addCompletedDownload...")
+            dm.addCompletedDownload(
+                file.parentFile.parentFile.name + "/" + file.parentFile.name + "/" + s,
+                filepath,
+                true,
+                mimeType,
+                file.getAbsolutePath(),
+                file.length(),
+                false
+            )
+        }
+        // memorize the first downloaded file to navigate to after everything is completed
+        if(isFirst){
+            sFirstDownloadedFile = filepath
+        }
+        // make available the folder to system index
+        if(isLast){ // https://stackoverflow.com/questions/32789157/how-to-write-files-to-external-public-storage-in-android-so-that-they-are-visibl
+            CTAG.d("scanFile...")
+            val ctxt = MainActivity.myMain?.baseContext!!
+            MediaScannerConnection.scanFile(ctxt, arrayOf(file.getAbsolutePath()), arrayOf(mimeType), null)
+        }
+        CTAG.leave("${s}")
+    }
+
+    // call from python
+    fun showSnackMsgFromPythonViaPublishProgress(s :String)
+    {
+        CTAG.enter("showSnackFromPy","publishProgressFromPython: ${s}")
+        publishProgress(s)
+        CTAG.leave("publishProgressFromPython: ${s}")
+    }
+
+    // called in UI thread when publishProgress is invoked by background task
+    override fun onProgressUpdate(vararg values: String) {
+        CTAGUI.enter("onProgrsUpd","count: ${values.size.toString()}")
+        //pb = MainActivity.myMain?.findViewById(R.id.progressBar) as ProgressBar
+        //pb!!.progress = values[0]!!.toInt()
+        //
+        val sRc : String = values[0]
+        CTAGUI.i("show snack '${sRc}'")
+        Snackbar.make(v, sRc, Snackbar.LENGTH_INDEFINITE)
+            .setAction("Action", null).show()
+        //
+        super.onProgressUpdate(*values)
+        CTAGUI.leave()
+    }
+
     override fun onPostExecute(sRc: String) {
-        Log.i("ADH::OPOST", "-> sRc: "+sRc+"; myErr: "+myErr)
+        CTAGUI.enter("onPostExecute", "sRc: "+sRc+"; myErr: "+myErr)
         pb = MainActivity.myMain?.findViewById(R.id.progressBar) as ProgressBar
         pb!!.visibility = View.INVISIBLE
         //
@@ -139,7 +214,7 @@ class AsyncDownloadHandler : AsyncTask<String, String, String>() {
         }
         else {
             // Fehlerausgabe
-            Log.w("ADH::OPOST", myErr)
+            CTAGUI.w(myErr)
             val snackbar = Snackbar.make(v, myErr, Snackbar.LENGTH_LONG)
             val snackbarView = snackbar.view
             val textView =
@@ -148,27 +223,6 @@ class AsyncDownloadHandler : AsyncTask<String, String, String>() {
             snackbar.setAction("Action", null).show()
             //
         }
-        Log.i("ADH::OPOST", "<-")
-    }
-
-    // call from python
-    fun showSnackMsgFromPythonViaPublishProgress(s :String)
-    {
-        Log.i("ADH::SHOWMSG","-> publishProgressFromPython: ${s}")
-        publishProgress(s)
-        Log.i("ADH::SHOWMSG","<- publishProgressFromPython: ${s}")
-    }
-
-    override fun onProgressUpdate(vararg values: String) {
-        Log.i("ADH::OPRGUPD","count: ${values.size.toString()}")
-        //pb = MainActivity.myMain?.findViewById(R.id.progressBar) as ProgressBar
-        //pb!!.progress = values[0]!!.toInt()
-        //
-        val sRc : String = values[0]
-        Log.i("ADH::OPRGUPD","show snack '${sRc}'")
-        Snackbar.make(v, sRc, Snackbar.LENGTH_INDEFINITE)
-            .setAction("Action", null).show()
-        //
-        super.onProgressUpdate(*values)
+        CTAGUI.leave()
     }
 }

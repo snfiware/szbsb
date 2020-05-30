@@ -15,25 +15,21 @@
  */
 package de.snfiware.szbsb.fullscrn
 
-import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Point
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
-import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View.*
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NavUtils
-import com.example.sztab.R // TODO rename to szbsb
-import de.snfiware.szbsb.FullScreenForwarder
+import de.snfiware.szbsb.R
 import de.snfiware.szbsb.MainActivity
 import de.snfiware.szbsb.MainActivity.Companion.myFsf
 import de.snfiware.szbsb.main.CfgSzHandler
+import de.snfiware.szbsb.util.AcmtLogger
 import kotlinx.android.synthetic.main.activity_fullscreen.*
 import kotlin.math.abs
 
@@ -47,8 +43,10 @@ import kotlin.math.abs
  * detected).
  */
 class FullscreenActivity : AppCompatActivity() {
+    //
     lateinit var myNavi : DatePageNavigator
-
+    lateinit var myMenu : Menu
+    //
     val MIN_DIST_SWIPE = 50 // min distance between down and up for successful swipe detection
     var myLastDownPos : Point = Point(-1,-1)
     var myLastUpPos : Point = Point(-1,-1)
@@ -60,14 +58,12 @@ class FullscreenActivity : AppCompatActivity() {
         if (event != null) {
             val e: MotionEvent = event
             val ptrCnt = e.pointerCount
-            Log.d(
-                "FSA::dTouchEvent",
-                "x: " + e.x.toString() + "; y: " + e.y.toString()
+            CTAG.log("dTouchEvent - x: " + e.x.toString() + "; y: " + e.y.toString()
                         + "; evt: " + e.action + "; ptrCnt: " + ptrCnt.toString()
             )
             if (ptrCnt == 3) {
                 if (e.action == 517) {
-                    Log.d("FSA::dTouchEvent","-> resetZoomWithAnimation")
+                    CTAG.log("dTouchEvent -> resetZoomWithAnimation")
                     fullscreen_content.resetZoomWithAnimation()
                 }
 /*
@@ -106,10 +102,13 @@ class FullscreenActivity : AppCompatActivity() {
                             // do nothing when the pdf is zoomed in
                         } else {
                             // navigate when the pdf is zoomed out fully
-                            if (myLastUpPos.x < myLastDownPos.x)
+                            if (myLastUpPos.x < myLastDownPos.x) {
+                                CTAG.log("dTouchEvent - Nach rechts navigieren...")
                                 myNavi.onClickPdfRechts()
-                            else
+                            } else {
+                                CTAG.log("dTouchEvent - Nach links navigieren...")
                                 myNavi.onClickPdfLinks()
+                            }
                         }
                     }
                 }
@@ -124,7 +123,7 @@ class FullscreenActivity : AppCompatActivity() {
     private val mHideHandler = Handler()
     private val mHidePart2Runnable = Runnable {
         // Delayed removal of status and navigation bar
-
+        CTAG.log("Hide Runnable Part 2")
         // Note that some of these constants are new as of API 16 (Jelly Bean)
         // and API 19 (KitKat). It is safe to use them, as they are inlined
         // at compile-time and do nothing on earlier devices.
@@ -137,18 +136,20 @@ class FullscreenActivity : AppCompatActivity() {
                     SYSTEM_UI_FLAG_HIDE_NAVIGATION
     }
     private val mShowPart2Runnable = Runnable {
+        CTAG.log("Show Runnable")
         // Delayed display of UI elements
         supportActionBar?.show()
         sz_fullscreen_content_controls.visibility = VISIBLE
     }
     private var mVisible: Boolean = false
-    private val mHideRunnable = Runnable { hide() }
+    private val mHideRunnable = Runnable { CTAG.log("Hide Runnable Part 1"); hide() }
     /**
      * Touch listener to use for in-layout UI controls to delay hiding the
      * system UI. This is to prevent the jarring behavior of controls going away
      * while interacting with activity UI.
      */
     private val mDelayHideTouchListener = OnTouchListener { _, _ ->
+        CTAG.log("OnTouchListener")
         if (AUTO_HIDE) {
             delayedHide(AUTO_HIDE_DELAY_MILLIS)
         }
@@ -157,7 +158,7 @@ class FullscreenActivity : AppCompatActivity() {
 
     // @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     override fun onCreate(savedInstanceState: Bundle?) {
-        Log.i("FSA::onCreate", "->")
+        CTAG.enter("onCreate","savedInstanceState: $savedInstanceState")
         fsa = this
         super.onCreate(savedInstanceState)
 
@@ -184,11 +185,11 @@ class FullscreenActivity : AppCompatActivity() {
         // operations to prevent the jarring behavior of controls going away
         // while interacting with the UI.
         //dummy_button.setOnTouchListener(mDelayHideTouchListener)
-        Log.i("FSA::onCreate", "<-")
+        CTAG.leave()
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
-        Log.i("FSA::onPostCreate", "->")
+        CTAG.enter("onPostCreate","savedInstanceState: $savedInstanceState")
         super.onPostCreate(savedInstanceState)
 
         // Trigger the initial hide() shortly after the activity has been
@@ -208,11 +209,13 @@ class FullscreenActivity : AppCompatActivity() {
         rebuildNavigator(null)
         myFsf.setIconFromState()
         //
-        Log.i("FSA::onPostCreate", "<-")
+        DeleteHandler.checkAndPossiblyShowDeleteWarning(this)
+        //
+        CTAG.leave()
     }
 
     fun rebuildNavigator( d :DeleteHandler? ) {
-        Log.i("FSA::rebuildNavigator", "->")
+        CTAG.enter("rebuildNavi", "d: $d")
         myNavi = DatePageNavigator(
             this,
             CfgSzHandler.getDownloadFolderFromUI()
@@ -223,37 +226,48 @@ class FullscreenActivity : AppCompatActivity() {
             myNavi.showNextPdfAfterDelete(d)
         }
         //myNavi.toggleSpinnerListeners(true)
-        Log.i("FSA::rebuildNavigator", "<-")
+        CTAG.leave()
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        CTAG.enter("onCreaOptMenu", "menu: $menu")
         super.onCreateOptionsMenu(menu)
+        myMenu = menu!!
         val inflater = this.menuInflater
         inflater.inflate(R.menu.fullscr_menu, menu)
+        CTAG.leave()
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        CTAG.enter("onOptItemSel", "item: $item selected")
+        var bRc = true
         val id = item.itemId
-        Log.d("FSA::onOptItemSel", "id ${id.toString()} == ${android.R.id.home.toString()}")
         if (id == android.R.id.home) {
+            CTAG.log("Navigate (back) to home...")
             // This ID represents the Home or Up button.
             NavUtils.navigateUpFromSameTask(this)
-            return true
-
-        } else if (id == R.id.mi_help) {
+        }
+        else if (id == R.id.mi_help) {
+            CTAG.log("Navigate to help...")
             val i = Intent(MainActivity.myMain!!.applicationContext, HelpActivity::class.java)
             MainActivity.myMain!!.startActivity(i)
-            return true
-
-        } else if (id == R.id.mi_delete_pdf || id == R.id.mi_delete_folder || id == R.id.mi_delete_all ) {
-            return DeleteHandler.handleOnOptionsItemSelected(item)
         }
-        return super.onOptionsItemSelected(item)
+        else if (id == R.id.mi_delete_pdf || id == R.id.mi_delete_folder || id == R.id.mi_delete_all
+              || id == R.id.mi_delete_older_90 || id == R.id.mi_delete_older_180) {
+            CTAG.log("Delegate to Sub-Handler...")
+            bRc = DeleteHandler.handleOnOptionsItemSelected(item)
+        }
+        else {
+            CTAG.log("Call super...")
+            bRc = super.onOptionsItemSelected(item)
+        }
+        CTAG.leave("id: $id; bRc: $bRc")
+        return bRc
     }
 
     fun toggle() {
-        Log.i("FSA","toggle; mVisible: " + mVisible.toString())
+        CTAG.log("toggle; mVisible: " + mVisible.toString())
         if (mVisible) {
             hide()
         } else {
@@ -262,7 +276,7 @@ class FullscreenActivity : AppCompatActivity() {
     }
 
     private fun hide() {
-        Log.i("FSA","hide" )
+        CTAG.log("hide" )
         // Hide UI first
         supportActionBar?.hide()
         sz_fullscreen_content_controls.visibility = GONE
@@ -274,7 +288,7 @@ class FullscreenActivity : AppCompatActivity() {
     }
 
     private fun show() {
-        Log.i("FSA","show" )
+        CTAG.log("show" )
         // Show the system bar
         fullscreen_content.systemUiVisibility =
                     SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
@@ -291,12 +305,14 @@ class FullscreenActivity : AppCompatActivity() {
      * previously scheduled calls.
      */
     private fun delayedHide(delayMillis: Int) {
-        Log.i("FSA","delayedHide: " + delayMillis.toString() )
+        CTAG.log("delayedHide: " + delayMillis.toString() )
         mHideHandler.removeCallbacks(mHideRunnable)
         mHideHandler.postDelayed(mHideRunnable, delayMillis.toLong())
     }
 
     companion object {
+        val CTAG = AcmtLogger("Full",true)
+        //
         lateinit var fsa : FullscreenActivity
         /**
          * Whether or not the system UI should be auto-hidden after
@@ -316,11 +332,4 @@ class FullscreenActivity : AppCompatActivity() {
          */
         private val UI_ANIMATION_DELAY = 300
     }
-
-    /** Navigation for the Fullscreen internals via RelativeLayoutViews
-     * */
-//    override fun onClick(v: View?) {
-//        Log.e("NAVI","FUNZT")
-//        myNavi.setCurPointer(1,2)
-//    }
 }

@@ -49,15 +49,10 @@ def out(s):
 	print("[" + str(datetime.now()) + " fx:" + inspect.currentframe().f_back.f_code.co_name + "] " + s)
 	#print("[" + str(datetime.now()) + " fx:" + __name__ + "] " + str(s))
 #
-##### Callback to Java / Kotlin #####
-out("-> chaquo-class-stub-definition")
-## CALL this within executeScript to show snackbar-msg:
-# adh.showSnackMsgFromPythonViaPublishProgress("py::executeScript reached")
-## import de.snfiware.szbsb.main.AsyncDownloadHandler
-# from de.snfiware.szbsb.main import AsyncDownloadHandler
-out("<- chaquo-class-stub-definition")
-#
+# dir is a string that represents a path
 def is_directory_writable(dir,bCreateIfNotExists):
+	i = -1
+	head = "nix"
 	bRc = False
 	bCreated = False
 	try:
@@ -67,10 +62,21 @@ def is_directory_writable(dir,bCreateIfNotExists):
 				os.makedirs(dir)
 				bCreated = os.path.exists(dir)
 		bRc = os.access(dir, os.W_OK)
+		if not bRc and not bCreateIfNotExists: # likely directory does not exist yet
+			# try heuristically if we may create in the future
+			out("run up the non-existant path elements and check...")
+			i = 0
+			head = dir
+			while(i < 100):
+				i += 1
+				head,tail=os.path.split(head)
+				bRc = os.access(head, os.W_OK) # means existing and writable
+				if bRc or len(head) < 5: # reached root
+					break
 	except Exception as e:
-		out("EXC: "+str(e))
+		out("EXC: "+str(e)) # ignore
 	#
-	out("new: %s; write-perm: %s; dir '%s'"%(bCreated,bRc,dir))
+	out("new: %s; write-perm: %s; i: %i; head: '%s'; dir: '%s'"%(bCreated,bRc,i,head,dir))
 	return bRc
 #
 def get_script_dir(follow_symlinks=True):
@@ -93,6 +99,12 @@ def showAndroidSnack(adh,stringText):
 		adh.showSnackMsgFromPythonViaPublishProgress(stringText)
 	#else noop = 0
 #
+def publishFile(adh, filepath, currIdx, firstIdx, lastIdx):
+	if( is_android() ):
+		out("-> publishFileFromPythonToAndroid: '%s'"%(filepath))
+		adh.publishFileFromPythonToAndroid(filepath,(currIdx==firstIdx),(currIdx==lastIdx))
+	#else noop = 0
+#
 def get_app_dir():
 	if is_android():
 		return( environ['HOME'] )
@@ -100,7 +112,25 @@ def get_app_dir():
 		return( get_script_dir() )
 #
 ##### CONFIGURATION #####
-def load_config():
+NO_USER = "user-is-not-set"
+NO_PASSWORD = "password-is-not-set"
+def secHid(s,bForceHide=False):
+	if bForceHide or "password" in s or "user" in s: # any([x in sRc for x in ["password","user"]]):
+		return "*%i*%s*"%(len(s),s[len(s)-2:len(s)-1])
+	else:
+		return(s)
+#
+HAUPTAUSGABE = "Süddeutsche Zeitung Hauptausgabe"
+#
+def getAreaFolderExt(sAreaToLoad):
+	if(sAreaToLoad != HAUPTAUSGABE):
+		return(" "+sAreaToLoad)
+	elif(sAreaToLoad == HAUPTAUSGABE):
+		return(" SZ")
+	else:
+		return("")
+#
+def load_config(sAreaToLoad):
 	out( "Lese Konfiguration..." )
 	configFileName = get_app_dir() + "/szconfig"
 	# Configuration tokens to extract
@@ -110,8 +140,8 @@ def load_config():
 	cfgPages = "myPages"
 	cfgTopics = "myTopics"
 	# Definition & Defaults
-	username = "user-is-not-set"
-	password = "password-is-not-set"
+	username = NO_USER
+	password = NO_PASSWORD
 	downloadFolderFromCfg = ""
 	downloadFolder = "./sz"
 	if is_android():
@@ -122,7 +152,7 @@ def load_config():
 	try:
 		with open(configFileName, 'r') as configFile:
 			content = configFile.read()
-			out(content)
+			#out(content)
 			lines = content.split("\n") #split it into lines
 			for line in lines:
 				line = line.strip() # trim
@@ -158,9 +188,9 @@ def load_config():
 		#
 	if downloadFolder[0:2] == ".." or downloadFolder[0] == ".": # relative from script location
 		downloadFolder = get_app_dir() + "/" + downloadFolder
-	downloadFolder = downloadFolder + "/" + str(date.today()) + "/"
+	downloadFolder = downloadFolder + "/" + str(date.today()) + getAreaFolderExt(sAreaToLoad) + "/"
 	out( "username: '%s'; password: '%s'; myPages: %s; myTopics: %s; downloadFolder is '%s'"%
-		  (username,password,myPages,myTopics,downloadFolder) )
+		  (secHid(username,True),secHid(password,True),myPages,myTopics,downloadFolder) )
 	return(username,password,myPages,myTopics,downloadFolder)
 #
 def check_config(username,password,myPages,myTopics,downloadFolder):
@@ -169,7 +199,7 @@ def check_config(username,password,myPages,myTopics,downloadFolder):
 	assert( is_numeric(username) ), "username must be numeric '%s'"%username
 	assert( len(password) > 0 ), "empty or invalid password '%s'"%password
 	assert( len(downloadFolder) > 0), "empty or invalid downloadFolder '%s'"%downloadFolder
-	assert( is_directory_writable(downloadFolder,True) ), "NO write permissions to downloadFolder '%s'"%downloadFolder
+	assert( is_directory_writable(downloadFolder,False) ), "NO write permissions to downloadFolder '%s'"%downloadFolder
 	assert( len(myPages) > 0 or len(myTopics) > 0 ), "at least one of both: page or topics must not be empty"
 	assert( len(myPages) != 1 or myPages[0] != 'GARNIX' or len(myTopics) != 1 or myTopics[0] != 'GARNIX' ), ""+\
 		"at least one of both must be filled meaningfully: pages: '%s' or topics: '%s'"%(str(myPages),str(myTopics))
@@ -182,7 +212,7 @@ def urlStringReplace(myUrl):
 ##### GLOBAL DOWNLOAD DICTONARY + HELPERS #####
 # wird benutzt um nix doppelt zu holen und die Reihenfolge zu verwalten
 dictDownloads = {} 
-# dictDownloads = {<page>:{'url':<url>,'from':<topic>|'page','idx':<number>}
+# dictDownloads = {<page>:{'url':<url>,'from':<topic>|'page','idx':<number>,'pos':<number>}
 FAILOVER = 90 # page number to start with on failover when trying to extract from html
 #
 def getKey(intOrStr):
@@ -240,16 +270,19 @@ def is_numeric( c ):
 	except Exception as e:
 		out("ign.: "+str(c)+"; exc.: "+str(e)) # ignore everything
 	return bRc
+#
 # Sucht innerhalb des Webseiten-Texts ws die Seitenzahl seite und sucht nach intern
 # definierten Regeln die passende href raus, setzt evtl. störende Zeichen um,
 # setzt die URL Teile zusammen und gibt eine aufrufbare URL zurück.
-# Fehler können vom Aufrufer mittels if rc == baseUrl: geprüft werden.
+# Fehler können vom Aufrufer mittels if rc[0] == -1 geprüft werden.
 #
 # Beispiel-XML-Fragment siehe unten 
 #
 def getUrlByPageNumber( ws, seite, baseUrl ):
 	rcUrlStartIdx = -1
 	rcUrlFragment = ""
+	correspondingTopic = ""
+	idxFound = -1
 	lookupTopic =   ['">' +str(seite)+"</a>" \
 					,'"> '+str(seite)+"</a>" \
 					,'">' +str(seite)+" </a>" \
@@ -271,6 +304,7 @@ def getUrlByPageNumber( ws, seite, baseUrl ):
 						rcUrlStartIdx = idxARef+len(lookupARef)
 						rcUrlFragment = ws[rcUrlStartIdx : idxEndUrl]
 						out("EXTRACTED URL FRAGMENT (" + str(idxARef) + "," + str(idxEndUrl) + "): " + rcUrlFragment)
+						idxFound += len(t) # der Endindex des Seitenzahl-Funds
 						break # first best is enough - list lookupTopic is ordered appropriately
 					else:
 						out("cannot find end of url")
@@ -281,7 +315,29 @@ def getUrlByPageNumber( ws, seite, baseUrl ):
 		else: 
 			out("cannot find pageNumber with expr: " + t)
 	#
-	return( rcUrlStartIdx, baseUrl + urlStringReplace(rcUrlFragment) )
+	if(rcUrlStartIdx != -1): # found -> try to get corresponding topic
+		out("try to find corresponding topic - rcUrlStartIdx: %i; idxFound: %i"%(rcUrlStartIdx,idxFound))
+		assert(idxFound > 0), "missing idxFound despite url has been found"
+		idxSpan = ws.find("<span",idxFound,idxFound+20) # Öffnendes Span, vgl. XML-Bsp unten
+		if(idxSpan != -1): # wir haben eine gerade Seite und müssen in der Folge nach rechts suchen
+			out("even page")
+			idxSpan = ws.find("</span",idxFound)
+			if(idxSpan != -1):
+				idxGt = ws.rfind(">",idxSpan-50,idxSpan-1)
+				if(idxGt != -1):
+					correspondingTopic = ws[idxGt+1 : idxSpan].strip() # trim blanks
+		else:
+			idxSpan = ws.find("</span",idxFound,idxFound+20) # Schließendes Span, vgl. XML-Bsp unten
+			if(idxSpan != -1): # wir haben eine ungerade Seite und müssen nach links suchen
+				out("odd page")
+				idxSpan = ws.rfind("</span>",idxSpan-250,idxSpan-1)
+				if(idxSpan != -1):
+					idxGt = ws.rfind(">",idxSpan-50,idxSpan-1)
+					if(idxGt != -1):
+						correspondingTopic = ws[idxGt+1 : idxSpan].strip() # trim blanks
+	#
+	out("rcUrlStartIdx: %i; correspondingTopic: '%s'"%(rcUrlStartIdx, correspondingTopic))
+	return( rcUrlStartIdx, baseUrl + urlStringReplace(rcUrlFragment), correspondingTopic )
 #
 # Beispiel-Fragment: >Politik< ---> URL-HREF->URL-Ende ---> Seite ">@ 1</a"
 #                    >Themen des Tages< (BACK)<--- URL-HREF->URL-Ende ---> Seite ">2 </a"
@@ -371,9 +427,9 @@ def getUrlByTopic( ws, topic, baseUrl, callerIndex, callerTotal ):
 #
 # Ruft myUrl auf, extrahiert das URL-Fragment für den Download, bereinigt es,
 # setzt es mit baseUrl zusammen und lädt das PDF herunter. Stellt sicher, dass
-# folders existieren und legt darin fileName mit dem heruntergeladenen content an.
-def getPdf(c, baseUrl, myUrl, headers, folders, fileName):
-	#out("\n\n>>>CALLING '%s' to '%s'""" % (myUrl,fileName))
+# folders existieren und legt darin filename mit dem heruntergeladenen content an.
+def getPdf(c, baseUrl, myUrl, headers, folders, filename):
+	#out("\n\n>>>CALLING '%s' to '%s'""" % (myUrl,filename))
 	out("\n\n>>>CALLING '%s'" % (myUrl))
 	r = c.get(myUrl, headers=headers, cookies=c.cookies) 
 	out("############################## >>> url: " + r.url + " <<<")
@@ -402,19 +458,21 @@ def getPdf(c, baseUrl, myUrl, headers, folders, fileName):
 	out("############################## >>> url: " + r.url + " <<<")
 	out("r.status_code: " + str(r.status_code)) 
 	if r.status_code != 200:
-		fileName += (".http%i.fail"%r.status_code)
+		filename += (".http%i.fail"%r.status_code)
 	# 
 	out("creating folder(s): " + folders)
 	if not os.path.exists(folders): os.makedirs(folders)
-	out("opening file: " + fileName)
-	fd = open(folders+fileName, 'wb')
+	out("opening file: " + filename)
+	filepath = folders+filename
+	fd = open(filepath, 'wb')
 	out("writing content of length: %i"%(len(r.content)))
 	fd.write(r.content)
 	fd.close()
-	out("Finished Download - File '%s' created.\n"%(folders+fileName))
+	out("Finished Download - File '%s' created.\n"%(filepath))
+	return(filepath)
 #
 ##########
-def loginAndNavigateToToday( username, password, adh, c ):
+def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 	out("Login and navigate to main...")
 	showAndroidSnack(adh,"Authentifizierung...")
 	#
@@ -469,7 +527,7 @@ def loginAndNavigateToToday( username, password, adh, c ):
 	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
 	#
 	if( r.status_code == 200 ):
-		showAndroidSnack(adh,"Lese Hauptausgabe...")
+		showAndroidSnack(adh,"Lese %s..."%(sAreaToLoad))
 	#
 	out("Suche URL zu den Ganzseiten...")
 	# Find within this string the URL:
@@ -596,14 +654,54 @@ def getSubNaviUrl(ws,sArea):
 	out("returning subnavi-url: '%s'; ATxt: '%s'; len ws: %i"%(rcUrlFragment,lookupATxt,len(ws)))
 	return( rcUrlFragment )
 #
+# Das Magazin vom 30.04. hat mehrseitige PDFs trotzdem für jede Seite einen Eintrag in der Webansicht
+# (auf das gleiche PDF). Das führt zu doppelt heruntergeladenen inhaltsgleichen PDFs.
+# Der Filter verhindert dies.
+# Beispiel (Magazin 22.05.): 2+3 und 8+9 ist inhaltsgleich; beachte z (letzte ID): ist mal gleich mal abweichend
+#      01: [15874] bid=SZ20200522S7231541.SZ.MAG.def.def.0..NT&uid=libnetbsbmuenchen&usi=10026&ugr=ugroup_abo_libnetretro&z=Z30198
+#      02: [16586] bid=SZ20200522S7231542.SZ.MAG.def.def.0..NT&uid=libnetbsbmuenchen&usi=10026&ugr=ugroup_abo_libnetretro&z=Z68497
+#      03: [17545] bid=SZ20200522S7231542.SZ.MAG.def.def.0..NT&uid=libnetbsbmuenchen&usi=10026&ugr=ugroup_abo_libnetretro&z=Z68497
+#      07: [20964] bid=SZ20200522S7231546.SZ.MAG.def.def.0..NT&uid=libnetbsbmuenchen&usi=10026&ugr=ugroup_abo_libnetretro&z=Z91485
+#      08: [21676] bid=SZ20200522S7231547.SZ.MAG.def.def.0..NT&uid=libnetbsbmuenchen&usi=10026&ugr=ugroup_abo_libnetretro&z=Z04591
+#      09: [22635] bid=SZ20200522S7231547.SZ.MAG.def.def.0..NT&uid=libnetbsbmuenchen&usi=10026&ugr=ugroup_abo_libnetretro&z=Z17413
+#      10: [23350] bid=SZ20200522S7231548.SZ.MAG.def.def.0..NT&uid=libnetbsbmuenchen&usi=10026&ugr=ugroup_abo_libnetretro&z=Z42612
+#
+def extractBid(url):
+	rcBid = url
+	lookupTok = "bid="
+	idxFound = url.find(lookupTok)
+	lookupTerm = '.SZ'
+	idxTerm = -1
+	if idxFound != -1:
+		idxTerm = url.find(lookupTerm)
+		if idxTerm != -1:
+			rcBid = url[idxFound+len(lookupTok) : idxTerm]
+	#out("rcBid:'%s'; idxFound: %i; idxTerm: %i; url: '%s'"%(rcBid,idxFound,idxTerm,url))
+	return(rcBid)
+#
+def filterAdjacentUrlDuplicates():
+	i = 0
+	j = 0
+	myPrevBid = "nix"
+	for k in sorted(dictDownloads.keys()):
+		i += 1
+		myBid = extractBid(dictDownloads[k]['url'])
+		if myPrevBid == myBid:
+			out("[%02i]removing key '%s' with bid '%s'"%(i,str(k),myBid))
+			dictDownloads.pop(k)
+			j += 1
+		else:
+			myPrevBid = myBid
+	out("filtered %i/%i items."%(j,i))
+#
 ##########
 # This executor is operated differently depending on the platform it is running on
 # If on android: adh is an object of kotlin class AsyncDownloadHandler. It shows progress advance.
 # If not on android: for adh pass in an arbitrary string (object is ignored)
 ##########
-def executeScript( adh, strContext ):
+def executeScript( adh, strContext, sAreaToLoad = HAUPTAUSGABE ):
 	out("Starte Ausführung (%s) des Scripts..."%strContext)
-	username,password,myPages,myTopics,downloadFolder = load_config()
+	username,password,myPages,myTopics,downloadFolder = load_config(sAreaToLoad)
 	check_config(username,password,myPages,myTopics,downloadFolder) # will raise on error
 	#
 	dictDownloads.clear()
@@ -614,7 +712,7 @@ def executeScript( adh, strContext ):
 		# apply WORKAROUND "android qpython cipher", see above
 		c.mount('https://', MyAdapter())
 		#
-		r,baseUrl,headers,payload = loginAndNavigateToToday(username,password,adh,c)
+		r,baseUrl,headers,payload = loginAndNavigateToToday(username,password,adh,c,sAreaToLoad)
 		#
 		r.encoding = "UTF-8"
 		ws = r.text.replace("&amp;","&")
@@ -629,20 +727,21 @@ def executeScript( adh, strContext ):
 		# <div style="border-bottom:1px solid Gainsboro; margin-bottom:7px; padding-bottom:5px; ">
 		# <a title="04.01.1999 - heute" href="hh03.ashx?req=nav&bid=navd.SZ.REG.20200430.....&uid=libnetbsbmuenchen&usi=10006&ugr=ugroup%5Fabo%5Flibnetretro&z=Z96586" style="color:black; ">SZ-Landkreise</a></div></td>
 		#
-		# todo: Regel "überhaupt angefordert" hinzufügen
-		# myUrl = getSubNaviUrl(ws, "Magazin")
-		# if len(myUrl) > 0:
-		# 	myUrl = baseUrl + myUrl
-		# 	out("\n\n>>>CALLING (Subnavi zum Magazin): " + myUrl)
-		# 	r = c.get(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True)
-		# 	myUrl = r.url
-		# 	out("############################## >>> forwarded-url: " + r.url + " <<<")
-		# 	out("r.status_code: " + str(r.status_code))
-		# 	#
-		# 	r.encoding = "UTF-8"
-		# 	ws = r.text.replace("&amp;","&")
-		# 	out("r.text: \n" + ws)
+		if(sAreaToLoad != HAUPTAUSGABE):
+			myUrl = getSubNaviUrl(ws, sAreaToLoad)
+			assert(len(myUrl)>0), "'%s' steht aktuell nicht zur Verfügung."%sAreaToLoad
 			#
+			myUrl = baseUrl + myUrl
+			out("\n\n>>>CALLING (Subnavi zum Magazin): " + myUrl)
+			r = c.get(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True)
+			myUrl = r.url
+			out("############################## >>> forwarded-url: " + r.url + " <<<")
+			out("r.status_code: " + str(r.status_code))
+			#
+			r.encoding = "UTF-8"
+			ws = r.text.replace("&amp;","&")
+			out("r.text: \n" + ws)
+		#
 		# Starting downloads, first by page, then by topic
 		out("\n-----------------------------\n--------- GET PAGES ---------\n-----------------------------")
 		i = 0 # each collection
@@ -653,12 +752,15 @@ def executeScript( adh, strContext ):
 			i += 1
 			ao += 1
 			out("Processing PDFs by page %i/%i ..." % (i,len(myPages)) )
-			urlStartIdx, myUrl = getUrlByPageNumber(ws, m, baseUrl)
+			urlStartIdx,myUrl,correspondingTopic = getUrlByPageNumber(ws, m, baseUrl)
 			if urlStartIdx == -1:
 				out("PDFs by page %i/%i was not found - skipping" % (i,len(myPages)) )
 			else:
-				out("Memorize Page-PDF (%i/%i)..." % (i,len(myPages)) )
-				memorizeUrl(m, m, urlStartIdx, myUrl, i)
+				out("Memorize Page-PDF (%i/%i) '%s'..." % (i,len(myPages),correspondingTopic) )
+				if(correspondingTopic==""):
+					memorizeUrl(m, m, urlStartIdx, myUrl, i)
+				else:
+					memorizeUrl(m, m, urlStartIdx, myUrl, i, correspondingTopic)
 		out("done with pages, now %i:\n %s"%(len(dictDownloads),'\n '.join('{}: {}'.format("%02i"%(k), "[%i] %s"%(v['pos'],v['url'][96:999])) for k, v in dictDownloads.items())))
 		#
 		out("\n------------------------------\n--------- GET TOPICS ---------\n------------------------------")
@@ -669,15 +771,25 @@ def executeScript( adh, strContext ):
 			out("Processing PDFs by topic %i/%i (%s)..." % (i,len(myTopics),m) )
 			getUrlByTopic(ws, m, baseUrl, i, len(myTopics))
 		out("done with topics, now %i:\n %s"%(len(dictDownloads),'\n '.join('{}: {}'.format("%02i"%(k), "[%i] %s"%(v['pos'],v['url'][96:999])) for k, v in dictDownloads.items())))
+		#highestKey = sorted(dictDownloads.keys())[-1]
+		#out("highestKey: "+str(highestKey))
+		#dictDownloads[highestKey+1] = dictDownloads[highestKey]
+		#out("done with fake, now %i:\n %s"%(len(dictDownloads),'\n '.join('{}: {}'.format("%02i"%(k), "[%i] %s"%(v['pos'],v['url'][96:999])) for k, v in dictDownloads.items())))
+		filterAdjacentUrlDuplicates()
+		out("done with filter, now %i:\n %s"%(len(dictDownloads),'\n '.join('{}: {}'.format("%02i"%(k), "[%i] %s"%(v['pos'],v['url'][96:999])) for k, v in dictDownloads.items())))
 		#
 		out("\n------------------------------\n--------- DOWNLOAD ---------\n------------------------------")
+		assert(len(dictDownloads)>0),"Es wurde kein PDF zum Herunterladen gefunden. Prüfen Sie Ihre Auswahl."
+		#
 		showAndroidSnack(adh,"%i PDF holen..."%len(dictDownloads))
 		i = 0
 		for k in dictDownloads:
 			i += 1
 			myUrl = dictDownloads[k]['url']
 			out( "Downloading PDFs SZ-Page: %i Progress: %i/%i ...\nURL:%s"%(k,i,len(dictDownloads),myUrl) )
-			getPdf( c, baseUrl, myUrl, headers, downloadFolder, getFileNameForPdf(k,i) )
+			filename = getFileNameForPdf(k,i)
+			filepath = getPdf( c, baseUrl, myUrl, headers, downloadFolder, filename )
+			publishFile(adh, filepath, i, 1, len(dictDownloads))
 			if(i%10==0):
 				showAndroidSnack(adh,"Hole %i/%i PDF..."%(i,len(dictDownloads)))
 		#

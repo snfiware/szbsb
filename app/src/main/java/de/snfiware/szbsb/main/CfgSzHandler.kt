@@ -19,11 +19,10 @@ import android.os.Environment
 import com.google.android.material.snackbar.Snackbar
 import android.view.View
 import de.snfiware.szbsb.MainActivity
-import android.util.Log
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.TextView
 import androidx.core.view.children
-import com.example.sztab.R
+import de.snfiware.szbsb.R
 import de.snfiware.szbsb.main.Chip0Handler.Companion.isRealChip
 import de.snfiware.szbsb.main.SectionsPagerAdapter.Companion.getChipByIdx
 import de.snfiware.szbsb.main.SectionsPagerAdapter.Companion.getChipGroupByResId
@@ -33,6 +32,7 @@ import de.snfiware.szbsb.util.assert
 import de.snfiware.szbsb.util.convertDpToPxFloat
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
+import de.snfiware.szbsb.util.AcmtLogger
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.roundToInt
@@ -45,46 +45,47 @@ import kotlin.math.roundToInt
 class CfgSzHandler() : View.OnClickListener {
 
     constructor(mainActivity: MainActivity) : this() {
-        Log.i("CSH::ctor", "this: "+ this.toString() + " old main: " +
+        CTAG.log( "ctor-this: "+ this.toString() + " old main: " +
             myMainActivity.toString() + " new main: " + mainActivity)
         //assert(myMainActivity==null , "singleton!" )
         myMainActivity = mainActivity
     }
 
     override fun onClick(v: View) {
-        Log.i("CSH::onClick","->")
+        CTAG.enter("onClick", "Config von UI in Datei speichern")
         // Über die umkopierte Config-Datei res/raw/szconfig wird mit python kommuniziert
         // Aktuellen Stand der Einstellungen dorthin schreiben
         dlg2file()
         //
         //v.isEnabled = false // Knopf nur einmalig zulassen
         //
-        var sRc : String = "starte..."
-        //sRc = "Prozess gestartet"
-        //Log.d("CSH::onClick",sRc)
-        //Snackbar.make(v, sRc, Snackbar.LENGTH_LONG)
-        //    .setAction("Action", null).show()
+        var sRc = "create AsyncHandler..."
+        CTAG.log(sRc)
         //
         val adh = AsyncDownloadHandler()
         try {
             // Hintergrundprozess starten
             adh.setView(v)
+            sRc = "execute AsyncHandler..."
+            CTAG.log(sRc)
             adh.execute("all")
             //
         } catch (e: Exception) {
             sRc = e.message!! //printStackTrace().toString()
-            Log.i("CSH::onClick","sRc: ${sRc}; adh.err: ${adh.myErr}")
+            CTAG.e("sRc: ${sRc}; adh.err: ${adh.myErr}")
             Snackbar.make(v, adh.myErr, Snackbar.LENGTH_LONG)
                 .setAction("Action", null).show()
         }
-        Log.i("CSH::onClick","<-")
+        CTAG.leave()
     }
 
     companion object {
+        val CTAG = AcmtLogger("CfgH")
+        //
         private var myMainActivity: MainActivity? = null
 
         private fun configFile(): String {
-            // /data/user/0/com.example.de.snfiware.szbsb/files/szconfig
+            // /data/user/0/de.snfiware.szbsb/files/szconfig
             return (myMainActivity?.getFilesDir()?.absolutePath + "/" +
                 myMainActivity?.resources?.getResourceEntryName(R.raw.szconfig))
         }
@@ -112,6 +113,7 @@ class CfgSzHandler() : View.OnClickListener {
         // also i.d.R. nur beim allerersten Start. Updates an der Ressource werden 
         // in diesem Fall also nicht ohne weiteres an den Benutzer weitergegeben.
         private fun ensureMasterCfgFileExistsInUserScope() {
+            CTAG.enter("ensureMCfgInUsr")
             if( ! File(configFile()).exists() ) {
                 FileOutputStream(configFile()).use { out ->
                     myMainActivity?.resources?.openRawResource(R.raw.szconfig).use {
@@ -119,6 +121,7 @@ class CfgSzHandler() : View.OnClickListener {
                     }
                 }
             }
+            CTAG.leave()
         }
 
         fun getArrayOfChipStrings( s:String ) :MutableList<String> {
@@ -131,7 +134,7 @@ class CfgSzHandler() : View.OnClickListener {
         }
 
         fun createAllTopics( v :View, s: String ) {
-            Log.i( "createAllChips", "->" )
+            CTAG.enter( "createAllTopics", s )
             val chipGroup = v.findViewById<ChipGroup>(R.id.cgTopics)
             val chip0 :Chip = getChipByIdx(chipGroup,0)
             //var layoutChip0 = chip0.layoutParams
@@ -142,6 +145,7 @@ class CfgSzHandler() : View.OnClickListener {
                 getArrayOfChipStrings(
                     s
                 )
+            CTAG.log("creating ${tags.indices} items...")
             for (index in tags.indices) {
                 val chip = Chip(chipGroup.context)
                 chip.text= "${tags[index]}"
@@ -152,11 +156,11 @@ class CfgSzHandler() : View.OnClickListener {
 
                 chipGroup.addView(chip,width,height)
             }
-            Log.i( "createAllChips", "<-" )
+            CTAG.leave()
         }
 
         fun createAllPages( v :View, s: String ) {
-            Log.i( "createAllPages", "->" )
+            CTAG.enter( "createAllPages", s )
             val chipGroup = v.findViewById<ChipGroup>(R.id.cgPages)
             val chip0 :Chip = getChipByIdx(chipGroup,0)
             //#
@@ -174,6 +178,7 @@ class CfgSzHandler() : View.OnClickListener {
                 getArrayOfChipStrings(
                     s
                 )
+            CTAG.log("creating ${tags.indices} items...")
             for (index in tags.indices) {
                 //val chip = Chip(chipGroup.context,null, R.attr.CustomChipChoiceStyle)
                 val chip = Chip(chipGroup.context,null)
@@ -193,7 +198,7 @@ class CfgSzHandler() : View.OnClickListener {
 
                 chipGroup.addView(chip)
             }
-            Log.i( "createAllPages", "<-" )
+            CTAG.leave()
         }
 
         ////////////////////////////////////////////////////////////////////////////////
@@ -202,12 +207,13 @@ class CfgSzHandler() : View.OnClickListener {
         // Basisbestückung zum Zeitpunkt onCreateView()
         //
         fun file2dlgCreation(v:View, asn:Int) {
-            Log.i( "file2dlgCreation", "->" )
+            CTAG.enter( "file2dlgCrea","lade config für asn:$asn")
             //
             ensureMasterCfgFileExistsInUserScope()
             //
             File(configFile()).forEachLine {
-                Log.d("file2dlgCreation","cfgFile-iterator: " + it)
+                if(doSecHide(it)) CTAG.log("cfgFile-iterator: " + "***")
+                             else CTAG.log("cfgFile-iterator: " + it)
                 var i = 0
                 var sTake = ""
                 for (elem in it.split(" = ")) {
@@ -234,33 +240,49 @@ class CfgSzHandler() : View.OnClickListener {
                     }
                 }
             }
-            Log.i( "file2dlgCreation", "<-" )
+            CTAG.leave()
         }
 
         // Anschalten der Chips anhand der Config zum Zeitpunkt onViewCreated()
         // und Befüllen der Texte
         fun file2dlgSelection() {
-            Log.i( "file2dlgSelection", "->" )
-            //
+            CTAG.enter( "file2dlgSel", "set programmatic mode" )
+            Chip0Handler.setCCIP(true)
+            try {
+                file2dlgSelectionInt()
+            } catch ( e :Exception ) {
+                CTAG.leave_ex("reraise: $e")
+                throw e
+            } finally {
+                CTAG.log("reset programmatic mode in finally")
+                Chip0Handler.setCCIP(false)
+            }
+            CTAG.leave()
+        }
+        fun doSecHide(s:String) :Boolean{
+            var bRc = false
+            if(s.contains(cfgPassword) || s.contains(cfgUsername))
+                bRc = true
+            return(bRc)
+        }
+        fun file2dlgSelectionInt() {
+            CTAG.log( "Lade properties in die UI" )
             ensureMasterCfgFileExistsInUserScope()
             //
+            CTAG.log("Lese Datei...")
             File(configFile()).forEachLine {
-                Log.d("file2dlg","cfgFile-iterator: " + it)
+                if(doSecHide(it)) CTAG.log("cfgFile-iterator: " + "***")
+                             else CTAG.log("cfgFile-iterator: " + it)
                 var i = 0
                 var sTake = ""
                 for (elem in it.split(" = ")) {
                     if( ++i == 1 ){
                         when {
-                            cfgUsername == elem       -> sTake =
-                                cfgUsername
-                            cfgPassword == elem       -> sTake =
-                                cfgPassword
-                            cfgDownloadFolder == elem -> sTake =
-                                cfgDownloadFolder
-                            cfgTopics == elem         -> sTake =
-                                cfgTopics
-                            cfgPages == elem          -> sTake =
-                                cfgPages
+                            cfgUsername == elem       -> sTake = cfgUsername
+                            cfgPassword == elem       -> sTake = cfgPassword
+                            cfgDownloadFolder == elem -> sTake = cfgDownloadFolder
+                            cfgTopics == elem         -> sTake = cfgTopics
+                            cfgPages == elem          -> sTake = cfgPages
                         }
                     } else {
                         when {
@@ -290,19 +312,21 @@ class CfgSzHandler() : View.OnClickListener {
                     }
                 }
             }
-            Log.i( "file2dlgSelection", "<-" )
         }
 
         public fun getDownloadFolderFromUI() : String {
             val textView = getTextViewByResId(R.id.editTextFolder)
-            return( textView.text.toString().trim() )
+            val sRc = textView.text.toString().trim()
+            CTAG.log("getDownloadFolderFromUI: $sRc")
+            return(sRc)
         }
 
+        // do not place logging in here - user+password is handled herein
         private fun copyString(s:String, resId:Int) {
             val textView = getTextViewByResId(resId)
             var sText = s.trim().trim('\'').trim()
             if( resId == R.id.editTextFolder )
-                if( sText == "./SZ" || sText.length == 0 ) {
+                if( sText.length == 0 || sText == "./SZ" ) {
                     val f = myMainActivity!!.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)!!
                     sText = f.absolutePath
                     sText += "/SZ"
@@ -311,8 +335,9 @@ class CfgSzHandler() : View.OnClickListener {
         }
 
         private fun checkChips(s:String, resId:Int) {
+            CTAG.enter("checkChips", "s: $s; resId: $resId")
             val v = getChipGroupByResId(resId)
-            Chip0Handler.setCCIP(true)
+            //Chip0Handler.setCCIP(true)
             var lastChipChecked :Chip? = null
             try {
                 val myChipGroup = v //as ChipGroup
@@ -325,14 +350,15 @@ class CfgSzHandler() : View.OnClickListener {
                     }
                     if( oneChip != null ) {
                         oneChip.isChecked = false // assume off
-                        System.out.println( "view: " + v.id + " chip: " + oneChip.text + " was unchecked (pauschal)")
+                        //CTAG.log( "view: " + v.id + " chip: " + oneChip.text + " was unchecked (pauschal)")
                         for( elem in s.split(',') ) {
                             if( elem.trim().trim('\'').trim().toString() == oneChip.text.trim().toString() ) {
                                 if (lastChipChecked == null) {
+                                    CTAG.i("remember chip '${oneChip.text}' to recall at the end")
                                     lastChipChecked = oneChip // merken bis zum Schluss, damit dann dort "C0-Alles" berücksichtigt wird
                                 } else {
                                     oneChip.isChecked = true  // alle übrigen gleich anstellen - switch on
-                                    System.out.println( "view: " + v.id + " chip: " + oneChip.text + " was checked (cfg)")
+                                    CTAG.i( "view: " + v.id + " chip: " + oneChip.text + " was checked (by cfg)")
                                 }
                                 break
                             }
@@ -340,44 +366,50 @@ class CfgSzHandler() : View.OnClickListener {
                     }
                 }
             } finally {
+                CTAG.log( "finally")
                 Chip0Handler.setCCIP(false)
                 if (lastChipChecked != null) {
+                    CTAG.log( "change chip state...")
                     lastChipChecked.isChecked = true
-                    System.out.println( "view: " + v.id + " chip: " + lastChipChecked.text + " was checked (cfg-deferred)")
+                    CTAG.log( "view: " + v.id + " chip: " + lastChipChecked.text + " was checked (cfg-deferred)")
                 }
+                Chip0Handler.setCCIP(true)
             }
+            CTAG.leave()
         }
 
         ////////////////////////////////////////////////////////////////////////////////
         // Schreibt die im Dialog vorhandenen Konfigurationseinträge in die Datei weg
         ////////////////////////////////////////////////////////////////////////////////
         fun dlg2file() {
-            Log.i( "dlg2file", "->" )
-            //
-            val f = File(configFile())
-            var cfgContent :String
-            cfgContent = getCfgFileTextRowFromUiText(
-                0,
-                R.id.editTextBsbId
-            ) + "\n" +
-                    getCfgFileTextRowFromUiText(
-                        0,
-                        R.id.editTextPassword
-                    ) + "\n" +
-                    getCfgFileTextRowFromUiText(
-                        0,
-                        R.id.editTextFolder
-                    ) + "\n" +
-                    getCfgFileTextRowsFromUiChipGroup(
-                        1,
-                        R.id.cgTopics
-                    ) + "\n" +
-                    getCfgFileTextRowsFromUiChipGroup(
-                        2,
-                        R.id.cgPages
-                    ) + "\n"
-            f.writeText( cfgContent )
-            Log.i( "dlg2file", "<-" )
+            CTAG.enter( "dlg2file" )
+            try {
+                val f = File(configFile())
+                var cfgContent: String
+                cfgContent = getCfgFileTextRowFromUiText(
+                    0,
+                    R.id.editTextBsbId
+                ) + "\n" +
+                        getCfgFileTextRowFromUiText(
+                            0,
+                            R.id.editTextPassword
+                        ) + "\n" +
+                        getCfgFileTextRowFromUiText(
+                            0,
+                            R.id.editTextFolder
+                        ) + "\n" +
+                        getCfgFileTextRowsFromUiChipGroup(
+                            1,
+                            R.id.cgTopics
+                        ) + "\n" +
+                        getCfgFileTextRowsFromUiChipGroup(
+                            2,
+                            R.id.cgPages
+                        ) + "\n"
+                f.writeText( cfgContent )
+            } finally {
+                CTAG.leave()
+            }
         }
 
         fun getCfgFileTextRowFromUiText( tabPos:Int, resId:Int ) :String {
@@ -393,48 +425,56 @@ class CfgSzHandler() : View.OnClickListener {
         }
         
         fun getCfgFileTextRowsFromUiChipGroup( tabPos:Int, resId:Int ) :String {
-            val v = getViewByPosition(tabPos).findViewById<View>(resId)
-            var cfgRowCur = ""
-            var cfgRowAll = ""
-            when {
-                resId == R.id.cgTopics -> {cfgRowCur = cfgTopics + " = "; cfgRowAll = cfgAllTopics + " = "}
-                resId == R.id.cgPages  -> {cfgRowCur = cfgPages + " = "; cfgRowAll = cfgAllPages + " = "}
-            }
-            val myChipGroup = v as ChipGroup
-            //
-            var i = 0
-            var j = 0
-            for( oneChild in myChipGroup.children ) {
-                if( isRealChip(oneChild) ) { // c0 "Alles-Knopf" + Sep ignorieren
-                    var oneChip: Chip?
-                    try {
-                        oneChip = oneChild as Chip
-                    } catch (e: Exception) {
-                        oneChip = null
-                    }
-                    if (oneChip != null) {
-                        // alle
-                        j += 1
-                        if (j > 1) {
-                            cfgRowAll += ","
+            CTAG.enter( "getCfgTxtRows", "tabPos: $tabPos; resId: $resId" )
+            var sRc = ""
+            try {
+                val v = getViewByPosition(tabPos).findViewById<View>(resId)
+                var cfgRowCur = ""
+                var cfgRowAll = ""
+                when {
+                    resId == R.id.cgTopics -> {cfgRowCur = cfgTopics + " = "; cfgRowAll = cfgAllTopics + " = "}
+                    resId == R.id.cgPages  -> {cfgRowCur = cfgPages + " = "; cfgRowAll = cfgAllPages + " = "}
+                }
+                val myChipGroup = v as ChipGroup
+                //
+                var i = 0
+                var j = 0
+                for( oneChild in myChipGroup.children ) {
+                    if( isRealChip(oneChild) ) { // c0 "Alles-Knopf" + Sep ignorieren
+                        var oneChip: Chip?
+                        try {
+                            oneChip = oneChild as Chip
+                        } catch (e: Exception) {
+                            oneChip = null
                         }
-                        cfgRowAll += "'" + oneChip.text + "'"
-                        // nur die abgehakten
-                        if (oneChip.isChecked) {
-                            i += 1
-                            if (i > 1) {
-                                cfgRowCur += ","
+                        if (oneChip != null) {
+                            // alle
+                            j += 1
+                            if (j > 1) {
+                                cfgRowAll += ","
                             }
-                            System.out.println("view: " + v.id + " chip: " + oneChip.text + " is checked")
-                            cfgRowCur += "'" + oneChip.text + "'"
+                            cfgRowAll += "'" + oneChip.text + "'"
+                            // nur die abgehakten
+                            if (oneChip.isChecked) {
+                                i += 1
+                                if (i > 1) {
+                                    cfgRowCur += ","
+                                }
+                                CTAG.log("view: " + v.id + " chip: " + oneChip.text + " is checked")
+                                cfgRowCur += "'" + oneChip.text + "'"
+                            }
                         }
                     }
                 }
+                if( i == 0 ) {
+                    cfgRowCur += "'GARNIX'"
+                }
+                sRc = cfgRowCur + "\n" + cfgRowAll
             }
-            if( i == 0 ) {
-                cfgRowCur += "'GARNIX'"
+            finally {
+                CTAG.leave(sRc)
             }
-            return cfgRowCur + "\n" + cfgRowAll
+            return sRc
         }
     }
 }

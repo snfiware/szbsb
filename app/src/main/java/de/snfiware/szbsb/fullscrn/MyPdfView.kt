@@ -17,30 +17,34 @@ package de.snfiware.szbsb.fullscrn
 
 import android.content.Context
 import android.util.AttributeSet
-import android.util.Log
 import com.github.barteksc.pdfviewer.PDFView
+import de.snfiware.szbsb.util.AcmtLogger
 import java.io.File
 
 
 class MyPdfView(context: Context?, set: AttributeSet?) : PDFView(context, set) {
+    val CTAG = AcmtLogger("MPV")
 
     fun loadPdfFromFile( f :File ) {
+        CTAG.enter("loadPdfFromFile","${f.name}")
         /////////////////////////////
         // get configurator
         val c = super.fromFile(f)
         // switch menu
 //        c.onLongPress { e ->
-        c.onTap { e ->
-            Log.i("MyPdfView","onLongPress -> toggle")
+        CTAG.log("register onTap and configure...")
+        c.onTap { _ ->
+            CTAG.log("onTap/onLongPress - toggle...")
             FullscreenActivity.fsa.toggle()
             false
         }
         c.enableDoubletap(true)
 
-        /////////////////////////////
-        // show pdf
+        ///////////////////////////////
+        // show pdf - start loading...
+        CTAG.log("start loading...")
         c.load()
-
+        CTAG.leave()
     }
 
 }

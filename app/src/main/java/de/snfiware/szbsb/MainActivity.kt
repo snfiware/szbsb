@@ -16,110 +16,49 @@
 package de.snfiware.szbsb
 
 import android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.drawable.Drawable
-import android.os.Build
 import android.os.Bundle
 import android.os.Environment
-import android.os.PersistableBundle
-import android.util.Log
-import android.view.View
-import androidx.annotation.IntegerRes
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.tabs.TabLayout
 import androidx.viewpager.widget.ViewPager
 import androidx.appcompat.app.AppCompatActivity
 import de.snfiware.szbsb.main.SectionsPagerAdapter
-import com.example.sztab.R
-import de.snfiware.szbsb.fullscrn.FullscreenActivity
-import de.snfiware.szbsb.fullscrn.HelpActivity
 import de.snfiware.szbsb.main.SectionsPagerAdapter.Companion.getMaxTabs
 import de.snfiware.szbsb.main.CfgSzHandler
-import java.io.File
-
-/**
- * FSF kann die FullScreens Hilfe und PDF starten.
- * Die Klasse steuert ferner den FloatingActionButton fabFullscreen.
- * Dieser hat zwei Zustände:
- * 1) Hilfe     true  @android:drawable/ic_menu_help
- * 2) PDF-Lesen false @android:drawable/ic_menu_view
- */
-class FullScreenForwarder : View.OnClickListener {
-    companion object {
-        private var myMainActivity: MainActivity? = null
-    }
-    private var myButton: FloatingActionButton
-
-    constructor(mainActivity: MainActivity, button: FloatingActionButton) {
-        Log.i("FSF::ctor", "this: "+ this.toString() + " old main: " +
-                myMainActivity.toString() + " new main: " + mainActivity)
-        //assert(myMainActivity==null , "singleton!" )
-        myMainActivity = mainActivity
-        myButton = button
-    }
-
-    private fun isFirstRun() :Boolean {
-        var bRc = true
-        val s = CfgSzHandler.getDownloadFolderFromUI()
-        try {
-            bRc = !File(s).exists()
-        } catch (e: Exception) {
-            // ign.
-        }
-        return( bRc )
-    }
-
-    fun setIconFromState() :Boolean {
-        Log.i("main","setIconFromState")
-        val bRc = isFirstRun()
-        val i :Int
-        if( bRc ) {
-            i = android.R.drawable.ic_menu_help
-        } else {
-            i = android.R.drawable.ic_menu_view
-        }
-        val d : Drawable
-        if( Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP ) {
-            d = myMainActivity!!.getResources().getDrawable(i, myMainActivity!!.theme)
-        } else {
-            d = myMainActivity!!.getResources().getDrawable(i)
-        }
-        myButton.setImageDrawable(d)
-        return( bRc )
-    }
-
-    override fun onClick(v: View) {
-        Log.i("FSF::onClick", "->")
-        CfgSzHandler.dlg2file()
-        showFullScreen()
-        Log.i("FSF::onClick", "<-")
-    }
-
-    fun showFullScreen() {
-        Log.i("FSF::SFS", "->")
-        if( myButton.id == R.id.fabDownload || !setIconFromState() ) {
-            val i = Intent(myMainActivity!!.applicationContext, FullscreenActivity::class.java)
-            myMainActivity!!.startActivity(i)
-        } else {
-            val i = Intent(myMainActivity!!.applicationContext, HelpActivity::class.java)
-            myMainActivity!!.startActivity(i)
-        }
-        Log.i("FSF::SFS", "<-")
-    }
-}
+import de.snfiware.szbsb.util.AcmtLogger
 
 class MainActivity : AppCompatActivity() {
+    val CTAG = AcmtLogger("Main")
 
     companion object {
-        public lateinit var myFsf : FullScreenForwarder
+        lateinit var myFsf : FullScreenForwarder
 
         var counter :Int = 0
         fun nextCounter() :Int {
             counter += 1
             return counter
         }
-        public var myMain: MainActivity? = null
+
+        fun getCheckedRadioButtonId(): Int {
+            val rgBereich = myMain?.findViewById(R.id.rgBereich) as RadioGroup
+            return(rgBereich.checkedRadioButtonId)
+        }
+
+        fun getCheckedRadioButton(): RadioButton {
+            val rbChecked = myMain?.findViewById(getCheckedRadioButtonId()) as RadioButton
+            return(rbChecked)
+        }
+
+        fun getCheckedRadioButtonCaption(): String {
+            val rbChecked = getCheckedRadioButton()
+            val sArea = rbChecked.text.toString()
+            return(sArea)
+        }
+
+        var myMain: MainActivity? = null
             get() {
                 return field
             }
@@ -129,20 +68,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        Log.i("main::onCreate","-> saved: "+ savedInstanceState.toString())
+        CTAG.e("Test-Logeintrag mit Klasse Fehler (E) - kommt das im Bugreport raus?")
+        CTAG.enter("onCreate","saved: "+ savedInstanceState.toString())
         //
+        CTAG.log("Checking permissions...")
         // TODO: https://developer.android.com/training/permissions/requesting
         if( android.os.Build.VERSION.SDK_INT >= 23 ) {
             if( this.checkSelfPermission(WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED ) {
 
                 // Requesting the permission
+                CTAG.log("Requestion permissions...")
                 this.requestPermissions( arrayOf(WRITE_EXTERNAL_STORAGE),101 )
             }
         }
         //
         myMain = this
-        //
         super.onCreate(savedInstanceState)
+        //
+        CTAG.log("Tabs einrichten...")
         setContentView(R.layout.activity_main)
         //
         val sectionsPagerAdapter = SectionsPagerAdapter(
@@ -156,31 +99,44 @@ class MainActivity : AppCompatActivity() {
         tabs.setupWithViewPager(viewPager)
 
         // init the app and register listeners
+        CTAG.log("Download-Knopf an CfzSzHandler binden...")
         var fab: FloatingActionButton = findViewById(R.id.fabDownload)
         val csf = CfgSzHandler(this )
         fab.setOnClickListener(csf) // evtl. nicht nur in den Button einhängen, sondern auch noch in die MainActivity selbst
         //
+        CTAG.log("Fullscreen-Knopf an FullScreenForwarder binden...")
         fab = findViewById(R.id.fabFullscreen)
         myFsf = FullScreenForwarder(this, fab )
         fab.setOnClickListener(myFsf)
         //
-        Log.e( "main::onCreate", "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)}")
-        Log.e( "main::onCreate", "${getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)}")
-        //Log.i("main::onCreate","test usage of pdf: "+PDFView(this.applicationContext,null).isRecycled.toString())
-        //
-        Log.i("main::onCreate","<-")
+        CTAG.log( "Env.getExternalStoragePublicDirectory (depr.): ${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)}")
+        CTAG.log( "getExternalFilesDir(Download): ${getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)}")
+
+        /*
+        CTAG.enter("meth","wurst")
+        CTAG.log("reinbeißen")
+        val CTAG2 = AcmtLogger("Sub")
+        CTAG2.log("classlog")
+            CTAG2.enter("2er")
+            CTAG2.log("in2")
+                CTAG.enter("ctor","y")  // BZ.Main.ctor -> y
+                CTAG.log_("xxx")        // BZ.Main xxx
+                CTAG.log("wtf")         // BZ.Main.ctor wtf
+                    CTAG2.enter("getX","17") // BZ.Main.getX .-> 17
+                        CTAG.log("wtf")         // BZ.Main.getX .wtf
+                    CTAG2.leave("bRc")  // BZ.Main.getX .<-back2:[BZ.Main.ctor] bRc:true
+                CTAG.leave("z")         // BZ.Main.ctor <-back2:[BZ.Sub.2er] z
+            CTAG.log("xxx")         // BZ.Main xxx
+            CTAG2.leave()
+//        CTAG2.leave()
+        CTAG.enter("zelle","salzig")
+//        CTAG2.enter("longlonglonglong")
+        CTAG.log("Geschmacksverirrung")
+        CTAG2.log("muffi")
+        CTAG.leave("süß")
+        CTAG.log("Händlmeier")
+        CTAG.leave("brötchen")
+        */
+        CTAG.leave()
     }
-
-//    override fun onResume() {
-//        super.onResume()
-//        myFsf.setIconFromState()
-//    }
-
-    //    override fun onPostCreate(savedInstanceState: Bundle?, persistentState: PersistableBundle?) {
-//        Log.i("main::onPostCreate","->")
-//        super.onPostCreate(savedInstanceState, persistentState)
-//        //
-//        myFsf.setIconFromState()
-//        Log.i("main::onPostCreate","<-")
-//    }
 }

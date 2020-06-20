@@ -1,5 +1,5 @@
 /**
- * Copyright 2020 (Corona-Version) Schnuffiware - snuffo@freenet.de
+ * Copyright 2020 (Corona-Version) Schnuffiware - https://github.com/snfiware/szbsb
  * <p/>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,6 @@ import android.media.MediaScannerConnection
 import android.os.AsyncTask
 import android.view.View
 import android.widget.ProgressBar
-import android.widget.RadioButton
-import android.widget.RadioGroup
 import android.widget.TextView
 import com.chaquo.python.PyObject
 import com.chaquo.python.Python
@@ -52,9 +50,11 @@ import java.io.File
 class AsyncDownloadHandler : AsyncTask<String, String, String>() {
     companion object {
         val CTAG = AcmtLogger("ADH",bSeparateStack = true)
+        val CTAGPY = AcmtLogger("APY",bSeparateStack = true)
         val CTAGUI = AcmtLogger("AUI")
         //
-        var sFirstDownloadedFile: String = "" // the one to focus
+        val NO_DOWNLOAD_YET = ""
+        var sFirstDownloadedFile: String = NO_DOWNLOAD_YET // the one to focus
     }
     //
     var pb: ProgressBar? = null
@@ -66,7 +66,7 @@ class AsyncDownloadHandler : AsyncTask<String, String, String>() {
     //
     lateinit var v :View
     fun setView (v:View) {
-        CTAG.d_("SetView ${v}; old: ${when(this::v.isInitialized) {true -> this.v; else -> "n/a"}}")
+        CTAG.d_("SetView ${v}; old: ${when(this::v.isInitialized) {true -> this.v.toString(); else -> "n/a"}}")
         this.v=v
     }
 
@@ -139,17 +139,30 @@ class AsyncDownloadHandler : AsyncTask<String, String, String>() {
     }
 
     // call from python
+    fun logFromPythonToAndroid(s :String, loglevel :Int) {
+        CTAGPY.log_(s,loglevel)
+    }
+
+    // call from python
+    fun showSnackMsgFromPythonViaPublishProgress(s :String)
+    {
+        CTAGPY.enti("showSnackFromPy","publishProgressFromPython: ${s}")
+        publishProgress(s)
+        CTAGPY.leave("publishProgressFromPython: ${s}")
+    }
+
+    // call from python
     fun publishFileFromPythonToAndroid(filepath :String, isFirst :Boolean, isLast :Boolean)
     {
         val file = File(filepath)
         val mimeType = "application/pdf"
         val s = file.name
-        CTAG.enter("pubFileFromPy","isLast: ${isLast.toString()} ${s}")
+        CTAGPY.enter("pubFileFromPy","isFirst: ${isFirst} isLast: ${isLast} ${s}")
         //
         if( false ) {
             val dm = MainActivity.myMain?.baseContext!!.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             //
-            CTAG.d("addCompletedDownload...")
+            CTAGPY.d("addCompletedDownload...")
             dm.addCompletedDownload(
                 file.parentFile.parentFile.name + "/" + file.parentFile.name + "/" + s,
                 filepath,
@@ -166,19 +179,12 @@ class AsyncDownloadHandler : AsyncTask<String, String, String>() {
         }
         // make available the folder to system index
         if(isLast){ // https://stackoverflow.com/questions/32789157/how-to-write-files-to-external-public-storage-in-android-so-that-they-are-visibl
-            CTAG.d("scanFile...")
-            val ctxt = MainActivity.myMain?.baseContext!!
-            MediaScannerConnection.scanFile(ctxt, arrayOf(file.getAbsolutePath()), arrayOf(mimeType), null)
+            CTAGPY.d("start MediaScanner.scanFile...")
+            //val ctxt = MainActivity.myMain?.baseContext!!
+            //MediaScannerConnection.scanFile(ctxt, arrayOf(file.getAbsolutePath()), arrayOf(mimeType), null)
+            MediaScannerConnection.scanFile(MainActivity.myMain, arrayOf(file.getAbsolutePath()), arrayOf(mimeType), null)
         }
-        CTAG.leave("${s}")
-    }
-
-    // call from python
-    fun showSnackMsgFromPythonViaPublishProgress(s :String)
-    {
-        CTAG.enter("showSnackFromPy","publishProgressFromPython: ${s}")
-        publishProgress(s)
-        CTAG.leave("publishProgressFromPython: ${s}")
+        CTAGPY.leave("${s}")
     }
 
     // called in UI thread when publishProgress is invoked by background task

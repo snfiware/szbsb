@@ -5,13 +5,9 @@ apply plugin: 'kotlin-android-extensions'
 
 // System.println( project.properties )
 
-// This default restricts the amount of debug build variants and therefore speeds up gradle.
-// Change if you are developping on a real-world device instead of an emulator. Most emus are x86.
-// Set this value to a valid ndk abiFilters and productFlavors accordingly - see below.
-def sDefaultDevAbiFilter = "armeabi-v7a"
-def sDefaultDevProductFlavor = "arm7"
-//def sDefaultDevAbiFilter = "x86"
-//def sDefaultDevProductFlavor = sDefaultDevAbiFilter
+// This preference restricts the number of build variants and therefore speeds up gradle.
+// See gradle.properties file for options or here below
+def pref = project.getProperties().get("build.flavor.prefered")
 
 android {
     compileSdkVersion 29
@@ -24,12 +20,8 @@ android {
         minSdkVersion 16
         targetSdkVersion 29
         versionCode 1
-        versionName '1.2'
+        versionName '1.2.1'
         archivesBaseName = "szbsb-v${versionName}"
-        //
-        // Default dev setup (i.e. with emulator x86) to get rid of warnings pressing run:
-        //  Cannot build selected target ABI, no suitable splits configured
-        //ndk { abiFilters sDefaultDevAbiFilter }
         //
         flavorDimensions "scope", "abi"
         productFlavors {
@@ -68,9 +60,30 @@ android {
         variantFilter { variant ->
             def names = variant.flavors*.name
             //System.println("names: "+ names + "; buildType: " + variant.buildType.name)
-            if (!names.contains(sDefaultDevProductFlavor) && variant.buildType.name == "debug") {
-                // Gradle ignores any variants that satisfy the conditions above.
-                setIgnore(true)
+            if( pref == "emulator" ) {
+                if( !(names.contains("x86") || names.contains("x86_64")) ) {
+                    setIgnore(true)
+                }
+            }
+            else if( pref == "realdevice" ) {
+                if( !(names.contains("arm7") || names.contains("arm64")) ) {
+                    setIgnore(true)
+                }
+            }
+            else if( pref == "practical" ) {
+                if( !(names.contains("x86") || names.contains("arm7")) || (names.contains("Public") && variant.buildType.name == "debug") ) {
+                    setIgnore(true)
+                }
+            }
+            else if( pref == "local" ) {
+                if( !(names.contains("x86") || names.contains("arm7")) || names.contains("Public")) {
+                    setIgnore(true)
+                }
+            }
+            else if( pref == "publish" ) {
+                if( names.contains("Private") || names.contains("x86_64") || names.contains("arm64") ) {
+                    setIgnore(true)
+                }
             }
         }
 /*      splits {
@@ -144,7 +157,12 @@ android {
     }
     defaultConfig {
         python { //https://chaquo.com/chaquopy/doc/current/android.html
-            buildPython "/snap/bin/python38"
+            def s2 = project.getProperties().get("python.fullPath.executable")
+            def f2 = file(s2)    // check gradle.properties
+            if( !f2.exists() ) { // check gradle.properties
+                throw new FileNotFoundException("file not found: '"+f2.absolutePath+"'; input: '"+s2+"'")
+            }
+            buildPython = s2 //project.getProperties().get("python.fullPath.executable")
             pyc { src bIsReleaseBuild }
             pip { install "requests" }
         }

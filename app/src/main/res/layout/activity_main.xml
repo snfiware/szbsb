@@ -62,6 +62,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="bottom|end"
             android:layout_margin="@dimen/fab_margin"
+            android:layout_weight="1"
             app:backgroundTint="@color/colorAccent"
             app:maxImageSize="30dp"
             app:rippleColor="#00FFFFFF"
@@ -69,5 +70,11 @@
             app:tint="@android:color/white" />
 
     </LinearLayout>
+
+    <!-- necessary for showing popup menu at the bottom -->
+    <Space
+        android:id="@+id/mainActFooterHook"
+        android:layout_height="0dp"
+        android:layout_width="match_parent"/>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -1,5 +1,5 @@
 /**
- * Copyright 2020 (Corona-Version) Schnuffiware - snuffo@freenet.de
+ * Copyright 2020 (Corona-Version) Schnuffiware - https://github.com/snfiware/szbsb
  * <p/>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,17 +19,20 @@ import android.content.Intent
 import android.graphics.Point
 import android.os.Bundle
 import android.os.Handler
+import android.view.KeyEvent
 import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NavUtils
+import com.google.android.material.snackbar.Snackbar
 import de.snfiware.szbsb.R
 import de.snfiware.szbsb.MainActivity
 import de.snfiware.szbsb.MainActivity.Companion.myFsf
 import de.snfiware.szbsb.main.CfgSzHandler
 import de.snfiware.szbsb.util.AcmtLogger
+import de.snfiware.szbsb.util.ConfiguredLogHelper
 import kotlinx.android.synthetic.main.activity_fullscreen.*
 import kotlin.math.abs
 
@@ -58,7 +61,7 @@ class FullscreenActivity : AppCompatActivity() {
         if (event != null) {
             val e: MotionEvent = event
             val ptrCnt = e.pointerCount
-            CTAG.log("dTouchEvent - x: " + e.x.toString() + "; y: " + e.y.toString()
+            CTAG.v("dTouchEvent - x: " + e.x.toString() + "; y: " + e.y.toString()
                         + "; evt: " + e.action + "; ptrCnt: " + ptrCnt.toString()
             )
             if (ptrCnt == 3) {
@@ -156,7 +159,6 @@ class FullscreenActivity : AppCompatActivity() {
         false
     }
 
-    // @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     override fun onCreate(savedInstanceState: Bundle?) {
         CTAG.enter("onCreate","savedInstanceState: $savedInstanceState")
         fsa = this
@@ -196,22 +198,15 @@ class FullscreenActivity : AppCompatActivity() {
         // created, to briefly hint to the user that UI controls
         // are available.
         //delayedHide(100)
-
-        //fullscreen_content.bringToFront()
-//        fullscreen_content.setMaxZoom(10f)
-//        fullscreen_content.setMidZoom(5.7f)
-//        fullscreen_content.setMinZoom(2.8f)
         //
-        fullscreen_content.setMaxZoom(5.7f)
-        fullscreen_content.setMidZoom(2.8f)
-        fullscreen_content.setMinZoom(1.0f)
+        MyPdfView.setZoom(this)
         //
         rebuildNavigator(null)
         myFsf.setIconFromState()
         //
         DeleteHandler.checkAndPossiblyShowDeleteWarning(this)
         //
-        CTAG.leave()
+        CTAG.leavi("now showing Pdf Fullscreen-View")
     }
 
     fun rebuildNavigator( d :DeleteHandler? ) {
@@ -240,22 +235,22 @@ class FullscreenActivity : AppCompatActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        CTAG.enter("onOptItemSel", "item: $item selected")
+        CTAG.enter("onOptItemSel", "item: ${item.title} selected")
         var bRc = true
         val id = item.itemId
         if (id == android.R.id.home) {
-            CTAG.log("Navigate (back) to home...")
+            CTAG.i("Navigate (back) to home...")
             // This ID represents the Home or Up button.
             NavUtils.navigateUpFromSameTask(this)
         }
         else if (id == R.id.mi_help) {
-            CTAG.log("Navigate to help...")
+            CTAG.i("Navigate to help...")
             val i = Intent(MainActivity.myMain!!.applicationContext, HelpActivity::class.java)
             MainActivity.myMain!!.startActivity(i)
         }
         else if (id == R.id.mi_delete_pdf || id == R.id.mi_delete_folder || id == R.id.mi_delete_all
               || id == R.id.mi_delete_older_90 || id == R.id.mi_delete_older_180) {
-            CTAG.log("Delegate to Sub-Handler...")
+            CTAG.i("Delegate Delete to Sub-Handler...")
             bRc = DeleteHandler.handleOnOptionsItemSelected(item)
         }
         else {
@@ -265,7 +260,7 @@ class FullscreenActivity : AppCompatActivity() {
         CTAG.leave("id: $id; bRc: $bRc")
         return bRc
     }
-
+    //
     fun toggle() {
         CTAG.log("toggle; mVisible: " + mVisible.toString())
         if (mVisible) {
@@ -274,9 +269,9 @@ class FullscreenActivity : AppCompatActivity() {
             show()
         }
     }
-
+    //
     private fun hide() {
-        CTAG.log("hide" )
+        CTAG.i("hide controls" )
         // Hide UI first
         supportActionBar?.hide()
         sz_fullscreen_content_controls.visibility = GONE
@@ -286,9 +281,9 @@ class FullscreenActivity : AppCompatActivity() {
         mHideHandler.removeCallbacks(mShowPart2Runnable)
         mHideHandler.postDelayed(mHidePart2Runnable, UI_ANIMATION_DELAY.toLong())
     }
-
+    //
     private fun show() {
-        CTAG.log("show" )
+        CTAG.i("show controls" )
         // Show the system bar
         fullscreen_content.systemUiVisibility =
                     SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
@@ -299,17 +294,16 @@ class FullscreenActivity : AppCompatActivity() {
         mHideHandler.removeCallbacks(mHidePart2Runnable)
         mHideHandler.postDelayed(mShowPart2Runnable, UI_ANIMATION_DELAY.toLong())
     }
-
     /**
      * Schedules a call to hide() in [delayMillis], canceling any
      * previously scheduled calls.
      */
     private fun delayedHide(delayMillis: Int) {
-        CTAG.log("delayedHide: " + delayMillis.toString() )
+        CTAG.i("delayedHide: " + delayMillis.toString() )
         mHideHandler.removeCallbacks(mHideRunnable)
         mHideHandler.postDelayed(mHideRunnable, delayMillis.toLong())
     }
-
+    //
     companion object {
         val CTAG = AcmtLogger("Full",true)
         //
@@ -331,5 +325,17 @@ class FullscreenActivity : AppCompatActivity() {
          * and a change of the status and navigation bar.
          */
         private val UI_ANIMATION_DELAY = 300
+
+        //
+        fun showSnack(s:String,dur:Int = Snackbar.LENGTH_SHORT) {
+            Snackbar.make(fsa.findViewById(R.id.fullscreen_content), s, dur)
+                .setAction("Action", null).show()
+        }
+    }
+    //
+    override fun onKeyLongPress(keyCode: Int, event: KeyEvent?): Boolean {
+        val loghelper = ConfiguredLogHelper(this, this.fullActFooterHook, this.fullscreen_content )
+        loghelper.showPopupMenu(this)
+        return super.onKeyLongPress(keyCode, event)
     }
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2020 (Corona-Version) Schnuffiware - snuffo@freenet.de
+ * Copyright 2020 (Corona-Version) Schnuffiware - https://github.com/snfiware/szbsb
  * <p/>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,8 +59,8 @@ class Chip0Handler : CompoundButton.OnCheckedChangeListener {
         if(bCheckChangeIsProgrammatic)
             return
 
-        CTAG.enter("onCheckedChanged","view-cb: " + v.text
-                + " was changed (by-user) to: " + isChecked.toString() )
+        CTAG.enti("onCheckedChanged","view-cb: '" + v.text
+                + "' was changed (by-user) to: " + isChecked.toString() )
         if( v.id == myChip0!!.id ) {
             // Es handelt sich um den Alles-Knopf (c0) der gerade seinen Status ändern
             if( isChecked ) {
@@ -70,11 +70,10 @@ class Chip0Handler : CompoundButton.OnCheckedChangeListener {
                 dlgAlert.setPositiveButton(
                     "Verstanden"
                 ) { _,_ -> //dialog, which ->
-                    DeleteHandler.CTAG.d("Dialog Ok was clicked...")
-                    //fsa.myMenu.performIdentifierAction(R.id.mi_delete_older_180, 0);
+                    CTAG.i("Dialog Ok was clicked...")
                 }
                 dlgAlert.setCancelable(false)
-                DeleteHandler.CTAG.d("show dialog...")
+                CTAG.i("show license dialog...")
                 dlgAlert.create().show()
             }
             //

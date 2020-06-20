@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # /**
-#  * Copyright 2020 (Corona-Version) Schnuffiware - snuffo@freenet.de
+#  * Copyright 2020 (Corona-Version) Schnuffiware - https://github.com/snfiware/szbsb
 #  * <p/>
 #  * Licensed under the Apache License, Version 2.0 (the "License");
 #  * you may not use this file except in compliance with the License.
@@ -45,9 +45,49 @@ class MyAdapter(HTTPAdapter):
 # <<<<<<<<<<<<<<<<
 #
 ##### FIRST HELPER FX #####
-def out(s):
-	print("[" + str(datetime.now()) + " fx:" + inspect.currentframe().f_back.f_code.co_name + "] " + s)
+def is_android():
+	return( 'ANDROID_STORAGE' in environ or 'ANDROID_ROOT' in environ)
+#
+global adh
+#
+VERBOSE = 2
+DEBUG = 3
+INFO = 4
+WARN = 5
+ERROR = 6
+ASSERT = 7
+#
+def out(s,loglevel=DEBUG,bExtra=False):
+	if bExtra:
+		fx = inspect.currentframe().f_back.f_back.f_code.co_name
+	else:
+		fx = inspect.currentframe().f_back.f_code.co_name
+	#
+	t = "[" + str(datetime.now()) + " fx:" + fx + "] " + s
 	#print("[" + str(datetime.now()) + " fx:" + __name__ + "] " + str(s))
+	if is_android():
+		global adh
+		adh.logFromPythonToAndroid(t,loglevel)
+	else:
+		print(t)
+#
+def outv(s):
+	out(s,VERBOSE,True)
+#
+def outd(s):
+	out(s,DEBUG,True)
+#
+def outi(s):
+	out(s,INFO,True)
+#
+def outw(s):
+	out(s,WARN,True)
+#
+def oute(s):
+	out(s,ERROR,True)
+#
+def outa(s):
+	out(s,ASSERT,True)
 #
 # dir is a string that represents a path
 def is_directory_writable(dir,bCreateIfNotExists):
@@ -67,7 +107,7 @@ def is_directory_writable(dir,bCreateIfNotExists):
 			out("run up the non-existant path elements and check...")
 			i = 0
 			head = dir
-			while(i < 100):
+			while(i < 100): # assume no deeper paths exists - should prevent from endless-loop on error
 				i += 1
 				head,tail=os.path.split(head)
 				bRc = os.access(head, os.W_OK) # means existing and writable
@@ -87,9 +127,6 @@ def get_script_dir(follow_symlinks=True):
 	if follow_symlinks:
 		path = os.path.realpath(path)
 	return os.path.dirname(path)
-#
-def is_android():
-	return( 'ANDROID_STORAGE' in environ or 'ANDROID_ROOT' in environ)
 #
 ## On Android adh is an object of kotlin class AsyncDownloadHandler
 ## If this script is executed from linux shell no such object is available nor is it necessary
@@ -211,7 +248,7 @@ def urlStringReplace(myUrl):
 #
 ##### GLOBAL DOWNLOAD DICTONARY + HELPERS #####
 # wird benutzt um nix doppelt zu holen und die Reihenfolge zu verwalten
-dictDownloads = {} 
+global dictDownloads #= {}
 # dictDownloads = {<page>:{'url':<url>,'from':<topic>|'page','idx':<number>,'pos':<number>}
 FAILOVER = 90 # page number to start with on failover when trying to extract from html
 #
@@ -504,11 +541,11 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 			   }
 	#
 	myUrl = 'https://emedia1.bsb-muenchen.de/hhauth/login' # könnte man sich auch aus der response holen
-	out("\n\n>>>CALLING: " + myUrl)
+	outi("\n\n>>>CALLING: " + myUrl)
 	r = c.post(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True)
-	myUrl = r.url
+	#myUrl = r.url
 	out("############################## >>> forwarded-url: " + r.url + " <<<")
-	out("r.status_code: " + str(r.status_code))
+	outi("r.status_code: " + str(r.status_code))
 	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
 	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
 	#
@@ -516,13 +553,13 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 		myUrl = 'https://' + [k.domain for k in c.cookies if k.name=='JSESSIONID'][0] + \
 				[k.path   for k in c.cookies if k.name=='JSESSIONID'][0] + '/j_security_check'
 	except IndexError as e:
-		out("EXC: Session-Cookie not found: "+str(e))
+		oute("EXC: Session-Cookie not found: "+str(e))
 		raise Exception("Auth. failed - check user/pw")
 	#
-	out("\n\n>>>CALLING: " + myUrl)
+	outi("\n\n>>>CALLING: " + myUrl)
 	r = c.post(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True)
 	out("############################## >>> forwarded-url: " + r.url + " <<<")
-	out("r.status_code: " + str(r.status_code))
+	outi("r.status_code: " + str(r.status_code))
 	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
 	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
 	#
@@ -549,10 +586,10 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 		quit()
 	#
 	myUrl = extractedUrlGanzseiten
-	out("\n\n>>>CALLING Ganzseiten: " + myUrl)
+	outi("\n\n>>>CALLING Ganzseiten: " + myUrl)
 	r = c.get(myUrl, headers=headers, cookies=c.cookies)
 	out("############################## >>> forwarded-url: " + r.url + " <<<")
-	out("r.status_code: " + str(r.status_code))
+	outi("r.status_code: " + str(r.status_code))
 	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
 	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
 	#
@@ -560,7 +597,7 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 	#
 	r.encoding = "UTF-8"
 	ws = r.text.replace("&amp;","&")
-	out("r.text: \n" + ws)
+	outv("r.text: \n" + ws)
 	#
 	# by *default* we are on SZ Hauptausgabe
 	#
@@ -573,7 +610,7 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 	# <div style="border-bottom:1px solid Gainsboro; margin-bottom:7px; padding-bottom:5px; ">
 	# <a title="11.05.1990 - heute" href="hh03.ashx?req=nav&bid=navj.SZ.MAG.2020...&uid=libnetbsbmuenchen&usi=10042&ugr=ugroup%5Fabo%5Flibnetretro&z=Z91361">SZ Magazin</a></div>
 	#
-	out("Suche URL des letzten Erscheinungstags...")
+	outi("Suche URL des letzten Erscheinungstags...")
 	# parsing for today or most recent within
 	# <a title="Letzter Erscheinungstag: 27.12.2019" href="hh03.ashx?req=nav&amp;bid=navd.SZ.SZ.20191227.DEU....&amp;uid=libnetbsbmuenchen&amp;usi=10017&amp;ugr=ugroup%5Fabo%5Flibnetretro&amp;z=Z23777">Â heute</a></div>
 	extractedUrlRelative = ""
@@ -586,17 +623,17 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 				out("idxHeute: %i, idxARef: %i, idxEndUrl: %i"%(idxHeute,idxARef,idxEndUrl))
 				extractedUrlRelative = ws[idxHeute+43 : idxEndUrl]
 			else:
-				out("cannot find terminator")
+				outw("cannot find terminator")
 		else:
-			out("cannot find href")
+			outw("cannot find href")
 	else:
-		out("cannot find Letzter Erscheinungstag")
+		outw("cannot find Letzter Erscheinungstag")
 	#
 	# letzter (auf der Seite) ET1A *mit* a-tag-child. Vorsicht gibt auch ET1a und child; Außerdem ist noch Space dazwischen
 	# Logik: Alle Spaces wegschmeißen und dann auf '<tdclass="ET1A"><ahref="' von hinten losgehen
 	# <td class="ET1A">									<a href="hh03.ashx?req=nav&amp;bid=navd.SZ.SZ.20200102.....&amp;uid=libnetbsbmuenchen&amp;usi=10017&amp;ugr=ugroup%5Fabo%5Flibnetretro&amp;z=Z78060">2</a></td>
 	if extractedUrlRelative == "":
-		out("letzter Versuch")
+		outi("letzter Versuch")
 		ws = r.text.replace(' ','').replace('\t','').replace('\n','').replace('\r','')
 		suchTok = '<tdclass="ET1A"><ahref="'
 		idxHeute = ws.rfind(suchTok)
@@ -608,24 +645,24 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 					out("Gefunden - extrahiere URL; idxHeute: %i, idxARef: %i, idxEndUrl: %i"%(idxHeute,idxARef,idxEndUrl))
 					extractedUrlRelative = ws[idxHeute+len(suchTok) : idxEndUrl]
 				else:
-					out("cannot find terminator")
+					outw("cannot find terminator")
 			else:
-				out("cannot find href")
+				outw("cannot find href")
 		else:
-			out("cannot find '%s'"%suchTok)
+			outw("cannot find '%s'"%suchTok)
 	#
 	if extractedUrlRelative == "":
-		out("quitting...")
+		oute("extractedUrlRelative is empty - quitting...")
 		quit()
 	#
 	myUrl = baseUrl + extractedUrlRelative
 	out( "replacing strings" )
 	myUrl = urlStringReplace(myUrl)
-	out("\n\n>>>CALLING (Subnavi nach HEUTE): " + myUrl)
+	outi("\n\n>>>CALLING (Subnavi nach HEUTE): " + myUrl)
 	r = c.get(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True)
-	myUrl = r.url
+	#myUrl = r.url
 	out("############################## >>> forwarded-url: " + r.url + " <<<")
-	out("r.status_code: " + str(r.status_code))
+	outi("r.status_code: " + str(r.status_code))
 	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
 	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
 	out("r.request.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.request.headers.items()))
@@ -671,7 +708,7 @@ def extractBid(url):
 	lookupTok = "bid="
 	idxFound = url.find(lookupTok)
 	lookupTerm = '.SZ'
-	idxTerm = -1
+	#idxTerm = -1
 	if idxFound != -1:
 		idxTerm = url.find(lookupTerm)
 		if idxTerm != -1:
@@ -699,12 +736,18 @@ def filterAdjacentUrlDuplicates():
 # If on android: adh is an object of kotlin class AsyncDownloadHandler. It shows progress advance.
 # If not on android: for adh pass in an arbitrary string (object is ignored)
 ##########
-def executeScript( adh, strContext, sAreaToLoad = HAUPTAUSGABE ):
-	out("Starte Ausführung (%s) des Scripts..."%strContext)
+def executeScript( pAdh, strContext, sAreaToLoad = HAUPTAUSGABE ):
+	print("executeScript - register adh...")
+	global adh
+	adh = pAdh
+	#
+	outi("Starte Ausführung (%s) des Scripts..."%strContext)
 	username,password,myPages,myTopics,downloadFolder = load_config(sAreaToLoad)
 	check_config(username,password,myPages,myTopics,downloadFolder) # will raise on error
 	#
-	dictDownloads.clear()
+	global dictDownloads
+	dictDownloads = {}
+	#dictDownloads.clear()
 	#
 	out("Starte Session...")
 	# the session will gather the cookies and hold them for preceeding calls
@@ -716,7 +759,7 @@ def executeScript( adh, strContext, sAreaToLoad = HAUPTAUSGABE ):
 		#
 		r.encoding = "UTF-8"
 		ws = r.text.replace("&amp;","&")
-		out("r.text: \n" + ws)
+		outv("r.text: \n" + ws)
 		#
 		# We reached today (or most recent).
 		# By default we are on SZ Hauptausgabe - sub-navi is available:
@@ -732,18 +775,18 @@ def executeScript( adh, strContext, sAreaToLoad = HAUPTAUSGABE ):
 			assert(len(myUrl)>0), "'%s' steht aktuell nicht zur Verfügung."%sAreaToLoad
 			#
 			myUrl = baseUrl + myUrl
-			out("\n\n>>>CALLING (Subnavi zum Magazin): " + myUrl)
+			outi("\n\n>>>CALLING (Subnavi zum Magazin): " + myUrl)
 			r = c.get(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True)
-			myUrl = r.url
+			#myUrl = r.url
 			out("############################## >>> forwarded-url: " + r.url + " <<<")
-			out("r.status_code: " + str(r.status_code))
+			outi("r.status_code: " + str(r.status_code))
 			#
 			r.encoding = "UTF-8"
 			ws = r.text.replace("&amp;","&")
-			out("r.text: \n" + ws)
+			outv("r.text: \n" + ws)
 		#
 		# Starting downloads, first by page, then by topic
-		out("\n-----------------------------\n--------- GET PAGES ---------\n-----------------------------")
+		outi("\n-----------------------------\n--------- GET PAGES ---------\n-----------------------------")
 		i = 0 # each collection
 		ao = 0 # allover
 		#
@@ -763,7 +806,7 @@ def executeScript( adh, strContext, sAreaToLoad = HAUPTAUSGABE ):
 					memorizeUrl(m, m, urlStartIdx, myUrl, i, correspondingTopic)
 		out("done with pages, now %i:\n %s"%(len(dictDownloads),'\n '.join('{}: {}'.format("%02i"%(k), "[%i] %s"%(v['pos'],v['url'][96:999])) for k, v in dictDownloads.items())))
 		#
-		out("\n------------------------------\n--------- GET TOPICS ---------\n------------------------------")
+		outi("\n------------------------------\n--------- GET TOPICS ---------\n------------------------------")
 		i = 0
 		#myTopics = ['Politik','GibtsNet','Feuilleton','Themen des Tages','Die Seite Drei']
 		for m in myTopics:
@@ -778,7 +821,7 @@ def executeScript( adh, strContext, sAreaToLoad = HAUPTAUSGABE ):
 		filterAdjacentUrlDuplicates()
 		out("done with filter, now %i:\n %s"%(len(dictDownloads),'\n '.join('{}: {}'.format("%02i"%(k), "[%i] %s"%(v['pos'],v['url'][96:999])) for k, v in dictDownloads.items())))
 		#
-		out("\n------------------------------\n--------- DOWNLOAD ---------\n------------------------------")
+		outi("\n------------------------------\n--------- DOWNLOAD ---------\n------------------------------")
 		assert(len(dictDownloads)>0),"Es wurde kein PDF zum Herunterladen gefunden. Prüfen Sie Ihre Auswahl."
 		#
 		showAndroidSnack(adh,"%i PDF holen..."%len(dictDownloads))
@@ -796,13 +839,12 @@ def executeScript( adh, strContext, sAreaToLoad = HAUPTAUSGABE ):
 		out( "done with downloading %i PDFs"%len(dictDownloads) )
 		showAndroidSnack(adh,"Fertig. %i PDF geholt."%len(dictDownloads))
 		#
-	out("done with executeScript.")
-	out("Beende Ausführung (%s) des Scripts"%strContext)
+	outi("Beende Ausführung (%s) des Scripts"%(strContext))
 	#
 if(is_android()):
-	out("MARK THIS: no automatic execution on loading script when invoked on android")
+	print("MARK THIS: no automatic execution on loading script when invoked on android")
 else:
 	out("calling executeScript")
 	executeScript("adh","we are not on android, script is executed on invoking script")
-out("done with script.")
+print("done with script.")
 #

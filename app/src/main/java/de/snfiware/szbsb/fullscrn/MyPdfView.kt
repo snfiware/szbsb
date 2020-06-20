@@ -1,5 +1,5 @@
 /**
- * Copyright 2020 (Corona-Version) Schnuffiware - snuffo@freenet.de
+ * Copyright 2020 (Corona-Version) Schnuffiware - https://github.com/snfiware/szbsb
  * <p/>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,20 @@ import android.content.Context
 import android.util.AttributeSet
 import com.github.barteksc.pdfviewer.PDFView
 import de.snfiware.szbsb.util.AcmtLogger
+import kotlinx.android.synthetic.main.activity_fullscreen.*
 import java.io.File
 
 
 class MyPdfView(context: Context?, set: AttributeSet?) : PDFView(context, set) {
-    val CTAG = AcmtLogger("MPV")
+    companion object {
+        val CTAG = AcmtLogger("MPV")
+
+        fun setZoom(fsa: FullscreenActivity) {
+            fsa.fullscreen_content.setMaxZoom(5.9f)
+            fsa.fullscreen_content.setMidZoom(2.99f)
+            fsa.fullscreen_content.setMinZoom(1.0f)
+        }
+    }
 
     fun loadPdfFromFile( f :File ) {
         CTAG.enter("loadPdfFromFile","${f.name}")
@@ -31,10 +40,9 @@ class MyPdfView(context: Context?, set: AttributeSet?) : PDFView(context, set) {
         // get configurator
         val c = super.fromFile(f)
         // switch menu
-//        c.onLongPress { e ->
-        CTAG.log("register onTap and configure...")
+        CTAG.d("register onTap and configure...")
         c.onTap { _ ->
-            CTAG.log("onTap/onLongPress - toggle...")
+            CTAG.d("onTap/onLongPress - toggle...")
             FullscreenActivity.fsa.toggle()
             false
         }
@@ -42,7 +50,7 @@ class MyPdfView(context: Context?, set: AttributeSet?) : PDFView(context, set) {
 
         ///////////////////////////////
         // show pdf - start loading...
-        CTAG.log("start loading...")
+        CTAG.i("start loading ${f.name} from ${f.parentFile.name}...")
         c.load()
         CTAG.leave()
     }

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item android:id="@+id/mi_show_log"                  android:title="Log anzeigen...">
+        <menu>
+            <item android:id="@+id/mi_download_log"           android:title="Log als Datei lokal speichern"/>
+            <item android:id="@+id/mi_share_log"              android:title="Log als Datei teilen..."/>
+            <item android:id="@+id/mi_log_statistics"         android:title="Statistik ins Log schreiben"/>
+            <item android:id="@+id/mi_show_log_filter_by_pid" android:title="Nur laufende App (PID-Filter)" android:visible="false"/>
+        </menu>
+    </item>
+
+    <item android:id="@+id/mi_write_filter"              android:title="Log-Einstellungen...">-->
+        <menu>
+            <item android:id="@+id/mi_loglevel"             android:title="Loglevel (temporär) setzen auf...">
+                <menu android:checkableBehavior="single">
+                    <item android:id="@+id/mi_loglevel_verbose" android:title="Verbose (alles ans LogCat senden)"/>
+                    <item android:id="@+id/mi_loglevel_debug"   android:title="Debug (Standard für Debug-Builds)"/>
+                    <item android:id="@+id/mi_loglevel_info"    android:title="Info (Standard für Release-Builds)"/>
+                    <item android:id="@+id/mi_loglevel_warn"    android:title="Warning"/>
+                    <item android:id="@+id/mi_loglevel_error"   android:title="Error"/>
+                    <item android:id="@+id/mi_loglevel_assert"  android:title="Assert (WTF)"/>
+                    <item android:id="@+id/mi_loglevel_silent"  android:title="Silent (gar nix loggen)"/>
+                </menu>
+            </item>
+            <!--
+                If too much is sent to LogCat it will limit the amount by replacing the log data with lines like these:
+                    06-04 12:13:37.407  9404  9439 I chatty  : uid=10133(de.snfiware.szbsb) RenderThread identical 31 lines
+
+                 Effectively this helps to save the purpose for all apps sharing LogCat and not being swept
+                 out by spammers (it is a ring buffer with limited capacity which will overwrite the old entries if its
+                 limits are reached), but this may lose important information too. To acquire infos about spammers
+                 issue this command via adb shell: logcat -S # this will show some statistics about the "chattiest".
+
+                 To obtain comprehensive information from log export you may set an exception by following options.
+             -->
+            <item android:id="@+id/mi_logcat_limit"           android:title="LogCat-Limit (chatty)...">
+                <menu>
+                    <item android:id="@+id/mi_logcat_whitelist_pid" android:title="Temporär aufheben (whitelist PID)"/>
+                    <item android:id="@+id/mi_logcat_whitelist_aid" android:title="Permanent aufheben (whitelist AID)" android:visible="false"/>
+                    <item android:id="@+id/mi_logcat_revoke_aid"    android:title="Limit wieder ermöglichen (de-whitelist)" android:visible="false"/>
+                </menu>
+            </item>
+        </menu>
+    </item>
+</menu>

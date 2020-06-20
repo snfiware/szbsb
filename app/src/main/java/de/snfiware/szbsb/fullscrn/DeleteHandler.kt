@@ -1,5 +1,5 @@
 /**
- * Copyright 2020 (Corona-Version) Schnuffiware - snuffo@freenet.de
+ * Copyright 2020 (Corona-Version) Schnuffiware - https://github.com/snfiware/szbsb
  * <p/>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package de.snfiware.szbsb.fullscrn
 
 import android.app.AlertDialog
 import android.view.MenuItem
-import com.google.android.material.snackbar.Snackbar
 import de.snfiware.szbsb.R
 import de.snfiware.szbsb.MainActivity
 import de.snfiware.szbsb.fullscrn.FullscreenActivity.Companion.fsa
@@ -79,9 +78,7 @@ class DeleteHandler() {
         val CTAG = AcmtLogger("DH")
         //
         fun showInfoNothingToDo(item: MenuItem) {
-            //val v = fsa.findViewById(android.R.id.content)
-            Snackbar.make(fsa.findViewById(R.id.fullscreen_content), "Nichts zu löschen...", Snackbar.LENGTH_SHORT)
-                .setAction("Action", null).show()
+            FullscreenActivity.showSnack("Nichts zu löschen...")
         }
         //
         fun handleOnOptionsItemSelected(item: MenuItem): Boolean {
@@ -89,7 +86,13 @@ class DeleteHandler() {
             var bRc = false
             val id = item.itemId
             //
-            if (id == R.id.mi_delete_pdf ) {
+            if( !fsa.myNavi.myRootDir.canRead() && fsa.myNavi.myRootDir.list().size > 0 ) {
+                FullscreenActivity.showSnack("Keine Berechtigungen.")
+            }
+            else if( fsa.myNavi.myRootDir.list().size == 0 ) {
+                FullscreenActivity.showSnack("Order leer.")
+            }
+            else if (id == R.id.mi_delete_pdf ) {
                 CTAG.d("deletePdf")
                 val d = DeleteHandler()
                 d.deletePdf()
@@ -179,7 +182,7 @@ class DeleteHandler() {
             val cnt = fsa.myNavi.list02.size
             if(cnt > 0) {
                 val dlgAlert: AlertDialog.Builder = AlertDialog.Builder(fsa)
-                dlgAlert.setMessage("Sie haben ${cnt} Ordner, die älter als 180 Tage sind. Jetzt löschen?")
+                dlgAlert.setMessage("Sie haben ${cnt} Ordner älter als 180 Tage. Jetzt löschen?")
                 dlgAlert.setTitle("BSB-Löschverpflichtung")
                 dlgAlert.setPositiveButton(
                     "Ok"

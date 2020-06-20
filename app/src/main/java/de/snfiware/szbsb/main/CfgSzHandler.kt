@@ -1,5 +1,5 @@
 /**
- * Copyright 2020 (Corona-Version) Schnuffiware - snuffo@freenet.de
+ * Copyright 2020 (Corona-Version) Schnuffiware - https://github.com/snfiware/szbsb
  * <p/>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ class CfgSzHandler() : View.OnClickListener {
     }
 
     override fun onClick(v: View) {
-        CTAG.enter("onClick", "Config von UI in Datei speichern")
+        CTAG.enti("onClick", "Download-Button geklickt. Zunächst Konfig von UI in Datei speichern...")
         // Über die umkopierte Config-Datei res/raw/szconfig wird mit python kommuniziert
         // Aktuellen Stand der Einstellungen dorthin schreiben
         dlg2file()
@@ -76,7 +76,7 @@ class CfgSzHandler() : View.OnClickListener {
             Snackbar.make(v, adh.myErr, Snackbar.LENGTH_LONG)
                 .setAction("Action", null).show()
         }
-        CTAG.leave()
+        CTAG.leavi()
     }
 
     companion object {
@@ -114,12 +114,16 @@ class CfgSzHandler() : View.OnClickListener {
         // in diesem Fall also nicht ohne weiteres an den Benutzer weitergegeben.
         private fun ensureMasterCfgFileExistsInUserScope() {
             CTAG.enter("ensureMCfgInUsr")
-            if( ! File(configFile()).exists() ) {
+            val filename = configFile()
+            val bExists = File(filename).exists()
+            CTAG.d("User config file '$filename' exists: $bExists")
+            if( !bExists ) {
                 FileOutputStream(configFile()).use { out ->
                     myMainActivity?.resources?.openRawResource(R.raw.szconfig).use {
                         it?.copyTo(out)
                     }
                 }
+                CTAG.i("User config file '$filename' created.")
             }
             CTAG.leave()
         }
@@ -145,7 +149,7 @@ class CfgSzHandler() : View.OnClickListener {
                 getArrayOfChipStrings(
                     s
                 )
-            CTAG.log("creating ${tags.indices} items...")
+            CTAG.i("creating ${tags.indices} items...")
             for (index in tags.indices) {
                 val chip = Chip(chipGroup.context)
                 chip.text= "${tags[index]}"
@@ -178,7 +182,7 @@ class CfgSzHandler() : View.OnClickListener {
                 getArrayOfChipStrings(
                     s
                 )
-            CTAG.log("creating ${tags.indices} items...")
+            CTAG.i("creating ${tags.indices} items...")
             for (index in tags.indices) {
                 //val chip = Chip(chipGroup.context,null, R.attr.CustomChipChoiceStyle)
                 val chip = Chip(chipGroup.context,null)
@@ -265,7 +269,7 @@ class CfgSzHandler() : View.OnClickListener {
                 bRc = true
             return(bRc)
         }
-        fun file2dlgSelectionInt() {
+        private fun file2dlgSelectionInt() {
             CTAG.log( "Lade properties in die UI" )
             ensureMasterCfgFileExistsInUserScope()
             //
@@ -336,6 +340,7 @@ class CfgSzHandler() : View.OnClickListener {
 
         private fun checkChips(s:String, resId:Int) {
             CTAG.enter("checkChips", "s: $s; resId: $resId")
+            var checkedCount = 0
             val v = getChipGroupByResId(resId)
             //Chip0Handler.setCCIP(true)
             var lastChipChecked :Chip? = null
@@ -353,12 +358,13 @@ class CfgSzHandler() : View.OnClickListener {
                         //CTAG.log( "view: " + v.id + " chip: " + oneChip.text + " was unchecked (pauschal)")
                         for( elem in s.split(',') ) {
                             if( elem.trim().trim('\'').trim().toString() == oneChip.text.trim().toString() ) {
+                                ++checkedCount
                                 if (lastChipChecked == null) {
-                                    CTAG.i("remember chip '${oneChip.text}' to recall at the end")
+                                    CTAG.d("remember chip '${oneChip.text}' to recall at the end")
                                     lastChipChecked = oneChip // merken bis zum Schluss, damit dann dort "C0-Alles" berücksichtigt wird
                                 } else {
                                     oneChip.isChecked = true  // alle übrigen gleich anstellen - switch on
-                                    CTAG.i( "view: " + v.id + " chip: " + oneChip.text + " was checked (by cfg)")
+                                    CTAG.v( "view: " + v.id + " chip: " + oneChip.text + " was checked (by cfg)")
                                 }
                                 break
                             }
@@ -375,7 +381,7 @@ class CfgSzHandler() : View.OnClickListener {
                 }
                 Chip0Handler.setCCIP(true)
             }
-            CTAG.leave()
+            CTAG.leavi("$checkedCount Chip(s) gecheckt")
         }
 
         ////////////////////////////////////////////////////////////////////////////////

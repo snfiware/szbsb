@@ -25,8 +25,7 @@ class SectionsPagerAdapter(private val context: Context, fm: FragmentManager) :
         var f = PlaceholderFragment.newInstance(
             position
         )
-        CTAG.i("getItem - writing pos: "+position+
-                " new: "+f.toString() + " old: "+ FRAGS[position].toString())
+        CTAG.d("getItem - writing pos: ${position}; new: ${f}; old: ${FRAGS[position]}." )
         FRAGS[position] = f
         return f
     }

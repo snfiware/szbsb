@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">SzBsb</string>
-    <string name="tab_text_1">Login</string>
+    <string name="tab_text_1">Start</string>
     <string name="tab_text_2">Rubriken</string>
     <string name="tab_text_3">Seiten</string>
 

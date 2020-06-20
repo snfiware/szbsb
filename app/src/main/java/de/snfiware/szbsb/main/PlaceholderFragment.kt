@@ -4,10 +4,13 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.TextView
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProviders
+import de.snfiware.szbsb.BuildConfig
 import de.snfiware.szbsb.R
 import de.snfiware.szbsb.MainActivity
 import de.snfiware.szbsb.MainActivity.Companion.myFsf
@@ -37,7 +40,7 @@ class PlaceholderFragment : Fragment() {
                 " viewGroup: " + container.toString())
         var v:View?
         val asn:Int = arguments!!.getInt(ARG_SECTION_NUMBER)
-        CTAG.log("asn: $asn")
+        CTAG.i("creating arg-section-number (asn): $asn ...")
         if (asn == 0)
         {
             CTAG.log("inflate...")
@@ -86,19 +89,31 @@ class PlaceholderFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         val frag = getFragmentByPosition( getMaxTabs()-1 )
         if( frag != null && view == frag.view ) {
-            CTAG.log( "--> file2dlgSelection" )
+            CTAG.i( "--> file2dlgSelection" )
             CfgSzHandler.file2dlgSelection()
             //
-            CTAG.log( "--> setIconFromState" )
+            CTAG.d( "--> setIconFromState" )
             MainActivity.myFsf.setIconFromState()
             //
             val textView = MainActivity.myMain!!.findViewById(R.id.editTextFolder) as TextView
-            CTAG.log( "register doAfterTextChanged on ${textView}" )
+            CTAG.d( "register doAfterTextChanged on ${textView}" )
             textView.doAfterTextChanged {
                     _ -> CTAG.enter("doAfterTxtChgd")
                             myFsf.setIconFromState()
                             CTAG.leave()
             }
+            //
+            CTAG.i("register RadioGroup-Checked-Change-Handler...")
+            val rg = MainActivity.myMain!!.findViewById<RadioGroup>(R.id.rgBereich)
+            rg.setOnCheckedChangeListener { group, checkedId ->
+                val rb = group.findViewById<RadioButton>(checkedId)
+                CTAG.i("Checked RadioButton is now: ${rb.text} - manual interaction resets ADH")
+                AsyncDownloadHandler.sFirstDownloadedFile = AsyncDownloadHandler.NO_DOWNLOAD_YET
+            }
+            //
+            val textViewBuildInfo = MainActivity.myMain!!.findViewById(R.id.editTextBuildInfo) as TextView
+            textViewBuildInfo.text = "v${BuildConfig.VERSION_NAME} "
+            //textViewBuildInfo.text = "v${BuildConfig.VERSION_NAME}\n${BuildConfig.FLAVOR}/${BuildConfig.BUILD_TYPE}"
         }
         CTAG.leave()
     }

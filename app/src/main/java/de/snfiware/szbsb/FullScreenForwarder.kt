@@ -1,5 +1,5 @@
 /**
- * Copyright 2020 (Corona-Version) Schnuffiware - snuffo@freenet.de
+ * Copyright 2020 (Corona-Version) Schnuffiware - https://github.com/snfiware/szbsb
  * <p/>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,6 +62,7 @@ class FullScreenForwarder : View.OnClickListener {
     }
 
     fun setIconFromState() :Boolean {
+        CTAG.enter("setIconFromState")
         val bRc = isFirstRun()
         val i :Int
         if( bRc ) {
@@ -77,15 +78,16 @@ class FullScreenForwarder : View.OnClickListener {
             d = myMainActivity!!.getResources().getDrawable(i)
         }
         myButton.setImageDrawable(d)
+        CTAG.leave("Showing ${when(bRc) {true -> "Help" else -> "Pdf"}} - bRc: $bRc")
         return( bRc )
     }
 
     override fun onClick(v: View) {
-        CTAG.enter("onClick", "Konfig speichern...")
+        CTAG.enti("onClick", "PdfView/Help-Button geklickt. Zunächst Konfig speichern...")
         CfgSzHandler.dlg2file()
-        CTAG.log("in den Vollbildmodus wechseln...")
+        CTAG.i("in den Vollbildmodus wechseln...")
         showFullScreen()
-        CTAG.leave()
+        CTAG.leavi()
     }
 
     fun showFullScreen() {

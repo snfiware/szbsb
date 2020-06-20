@@ -1,5 +1,5 @@
 /**
- * Copyright 2020 (Corona-Version) Schnuffiware - snuffo@freenet.de
+ * Copyright 2020 (Corona-Version) Schnuffiware - https://github.com/snfiware/szbsb
  * <p/>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ typealias tStringTree = MutableList<Pair<String,MutableList<File>>>
  * Die Wisch-Gesten-Steuerung (swipe) ist ausgelagert (FullscreenActivity).
  */
 class DatePageNavigator {
-    companion object {val CTAG = AcmtLogger("DPN") }
+    companion object { val CTAG = AcmtLogger("DPN") }
     //
     val myFullScrAct :FullscreenActivity
     val myRootDirString :String
@@ -129,12 +129,12 @@ class DatePageNavigator {
         val aa = object // create an unnamed derived class, override method and return object of this class
         /*START-iCLASS*/:ArrayAdapter<String>(myFullScrAct.applicationContext, android.R.layout.simple_spinner_item) {
             //
-            fun markText(position: Int, v: View?, parent: ViewGroup): Int {
-                var iApplied = -99
+            fun markText(position: Int, v: View?, parent: ViewGroup, bIsDropdown :Boolean): Int {
+                var iApplied = -1
+                var rowcontent = "init"
                 if(v != null) {
                     val tv = v as TextView
-                    val rowcontent = tv.text.substring(0,10)
-                    CTAG.log("rowcontent: ${rowcontent}; list01: $list01; list02: $list02")
+                    rowcontent = tv.text.substring(0,10)
                     if(list02.contains(rowcontent)) {
                         iApplied = 2
                         tv.setBackgroundColor(Color.RED)
@@ -143,23 +143,28 @@ class DatePageNavigator {
                         iApplied = 1
                         tv.setTextColor(Color.RED)
                     }
+                    else {
+                        // Das ist nicht ganz sauber, da die Farbe hart verdrahtet wird. Saubere
+                        // Lösung wäre sich vor dem allerersten Setzen das zu merken und hier auf
+                        // das Gemerkte zurückzusetzen.
+                        iApplied = 0
+                        tv.setTextColor(when(bIsDropdown){ true -> Color.BLACK else -> Color.WHITE })
+                        tv.setBackgroundColor(Color.TRANSPARENT)
+                    }
                 }
+                CTAG.log("'${rowcontent}';' iApplied: $iApplied; bDD: $bIsDropdown; list01: $list01; list02: $list02; position: $position; v: $v; parent: $parent")
                 return(iApplied)
             }
             //
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                CTAG.enter("getDDView", "position: $position; convertView: $convertView; parent: $parent")
                 val v = super.getView(position, convertView, parent)
-                val iApplied = markText(position, v, parent)
-                CTAG.leave("iApplied: $iApplied; v: $v")
+                markText(position, v, parent, false)
                 return v
             }
             //
             override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
-                CTAG.enter("getDDView", "position: $position; convertView: $convertView; parent: $parent")
                 val v = super.getDropDownView(position, convertView, parent)
-                val iApplied = markText(position, v, parent)
-                CTAG.leave("iApplied: $iApplied; v: $v")
+                markText(position, v, parent, true)
                 return v
             }
         /*END-iCLASS*/}
@@ -169,6 +174,7 @@ class DatePageNavigator {
     //
     private fun populateTree() {
         CTAG.enter("populateTree")
+        var pdfOverallCount = 0
         if( myRootDir.exists() && myRootDir.canRead() && myRootDir.list().size > 0 ) {
             CTAG.d("accessible rootDir")
             for (f1 in myRootDir.listFiles().sorted()) {
@@ -191,10 +197,11 @@ class DatePageNavigator {
                         }
                     }
                     CTAG.leave("populated tree node '${f1.name}' with ${mlo.size} files.")
+                    pdfOverallCount += mlo.size
                 }
             }
         }
-        CTAG.leave("populated directories: " + myStringTree.size )
+        CTAG.leavi("populated ${myStringTree.size} nodes with ${pdfOverallCount} PDF(s)" )
     }
     // looks duplicate but is for date + page slightly different - both needs to be registered...
     private fun toggleSpinnerListeners( bStartListening : Boolean ) {
@@ -209,10 +216,7 @@ class DatePageNavigator {
                     id: Long
                 ) {
                     val curIdxPosition = getCurDatePointerIndex()
-                    CTAG.i("Date:onItemSelected - " +
-                        "v: ${view.toString()}; pos: ${position.toString()}" +
-                                "cur-pos: ${curIdxPosition.toString()} - calling setCur..."
-                    )
+                    CTAG.i("Date:onItemSelected - pos: ${position}; cur-pos: ${curIdxPosition}")
                     if( position != curIdxPosition ) {
                         setCurPointer(position, 0)
                     } // else // ignoring
@@ -232,10 +236,7 @@ class DatePageNavigator {
                     id: Long
                 ) {
                     val curIdxPosition = getCurPagePointerIndex()
-                    CTAG.i( "Page:onItemSelected - " +
-                        "v: ${view.toString()}; pos: ${position.toString()}" +
-                                "cur-pos: ${curIdxPosition.toString()} - calling setCur..."
-                    )
+                    CTAG.i("Page:onItemSelected - pos: ${position}; cur-pos: ${curIdxPosition}")
                     if( position != curIdxPosition ) {
                         setCurPointer(myCurDatePointer, position)
                     } // else // ignoring
@@ -310,23 +311,39 @@ class DatePageNavigator {
         CTAG.enter("deleteFolders","list: $list")
         var bRc = false
         var i = 0
-        d.myCurDatePointer = 0
-        d.myCurPagePointer = 0
-        if(myRootDir.exists() && myRootDir.canRead() && myRootDir.list().size > 0) {
-            for(f1 in myRootDir.listFiles().sorted()) {
-                val dirName = f1.name.substring(0,10)
-                if(list.contains(dirName) && f1.isDirectory() && f1.canWrite()) {
-                    bRc = f1.deleteRecursively()
-                    if(bRc) {
-                        ++i
-                    } else {
-                        CTAG.e("error deleting '${f1.absolutePath}'")
-                        break
+        var step = "init"
+        try {
+            if (myRootDir.exists() && myRootDir.canRead() && myRootDir.list().size > 0) {
+                step = "loop"
+                for (f1 in myRootDir.listFiles().sorted()) {
+                    step = "checking ${f1.name}"
+                    val dirName = f1.name.substring(0, 10)
+                    if (list.contains(dirName) && f1.isDirectory() && f1.canWrite()) {
+                        step = "deleting ${f1.name}"
+                        bRc = f1.deleteRecursively()
+                        if (bRc) {
+                            ++i
+                        } else {
+                            CTAG.e("error deleting '${f1.absolutePath}'")
+                            break
+                        }
                     }
                 }
             }
+        } catch (e:java.lang.Exception) {
+            CTAG.e("EX! "+e.message)
+            e.printStackTrace()
+            bRc = false
         }
-        CTAG.leave("deleted $i folders")
+        //
+        if(bRc) {
+            d.myCurDatePointer = 0
+            d.myCurPagePointer = 0
+            FullscreenActivity.showSnack("$i Ordner gelöscht.")
+        } else {
+            FullscreenActivity.showSnack("Interner Fehler bei: $step")
+        }
+        CTAG.leave("deleted $i folders - bRc: $bRc - step: $step")
         return(bRc)
     }
     //
@@ -345,78 +362,87 @@ class DatePageNavigator {
         var iPage = idxPage
         var fn: String = "fnix"
         var dir: String = "dnix"
-        try {
-            // Rollover
-            if( iDate < 0 ) iDate = myStringTree.lastIndex
-            if( iDate > myStringTree.lastIndex ) iDate = 0
-            dir = myStringTree.get(iDate).first
-            //
-            if( iPage < 0 ) iPage = myStringTree.get(iDate).second.lastIndex
-            if( iPage > myStringTree.get(iDate).second.lastIndex ) iPage = 0
-            CTAG.d("after Rollover - " +
-                    "iDate: ${iDate.toString()}; iPage: ${iPage.toString()}" )
-            //
-            // Get file at desired location
-            var f = File("dummy.pdf")
-            val bPageIdxIsValid = iPage >= 0 && iPage < myStringTree.get(iDate).second.size
-            if( bPageIdxIsValid ) {
-                f = myStringTree.get(iDate).second.get(iPage)
-                fn = f.name // for logging only
-            }
-            /////////////////////////////
-            if( bPageIdxIsValid ) {
-                if(f.canRead()) {
-                    myPdfView.loadPdfFromFile(f) // start loading pdf
-                    myPdfView.bringToFront()
-                    myTxtInf.visibility = View.INVISIBLE
+        if(myRootDir.canRead() && myRootDir.list().size > 0) {
+            try {
+                // Rollover
+                if( iDate < 0 ) iDate = myStringTree.lastIndex
+                if( iDate > myStringTree.lastIndex ) iDate = 0
+                dir = myStringTree.get(iDate).first
+                //
+                if( iPage < 0 ) iPage = myStringTree.get(iDate).second.lastIndex
+                if( iPage > myStringTree.get(iDate).second.lastIndex ) iPage = 0
+                CTAG.d("after Rollover - " +
+                        "iDate: ${iDate.toString()}; iPage: ${iPage.toString()}" )
+                //
+                // Get file at desired location
+                var f = File("dummy.pdf")
+                val bPageIdxIsValid = iPage >= 0 && iPage < myStringTree.get(iDate).second.size
+                if( bPageIdxIsValid ) {
+                    f = myStringTree.get(iDate).second.get(iPage)
+                    fn = f.name // for logging only
+                }
+                /////////////////////////////
+                if( bPageIdxIsValid ) {
+                    if(f.canRead()) {
+                        myPdfView.loadPdfFromFile(f) // start loading pdf
+                        myPdfView.bringToFront()
+                        myTxtInf.visibility = View.INVISIBLE
+                    } else {
+                        myPdfView.recycle() // reset to empty
+                        //
+                        myTxtInf.text = "PDF '" + f.name +
+                                "' konnte nicht gelesen werden."
+                        myTxtInf.visibility = View.VISIBLE
+                        myTxtInf.bringToFront()
+                    }
                 } else {
                     myPdfView.recycle() // reset to empty
                     //
-                    myTxtInf.text = "PDF '" + f.name +
-                            "' konnte nicht gelesen werden."
+                    myTxtInf.text = "Keine PDFs unter '" + myRootDirString + "/" + dir +
+                         "' oder fehlende Berechtigungen."
                     myTxtInf.visibility = View.VISIBLE
                     myTxtInf.bringToFront()
                 }
-            } else {
-                myPdfView.recycle() // reset to empty
                 //
-                myTxtInf.text = "Keine PDFs unter '" + myRootDirString + "/" + dir +
-                     "' oder fehlende Berechtigungen."
+                CTAG.d("setting pointers, adjust spinners...")
+                if( myCurDatePointer != iDate ) {
+                    CTAG.d("date pointer changing from ${myCurDatePointer} to ${iDate}")
+                    myCurDatePointer = iDate
+                    myDateSpinner.setSelection(iDate)
+                    //
+                    // (re)fill Pages Spinner
+                    val aa = getArrayAdapter()
+                    val pagesList = myStringTree.get(iDate).second
+                    var i = 0
+                    for( pdf in pagesList ) {
+                        i += 1
+                        aa.add( pdf.name.removeSuffix(".pdf") + " (${i.toString()}/${pagesList.size})" )
+                    }
+                    aa.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                    myPageSpinner.setAdapter(aa)
+                }
+                //
+                CTAG.d("page pointer changing from ${myCurPagePointer} to ${iPage}")
+                myCurPagePointer = iPage
+                myPageSpinner.setSelection(iPage)
+                //
+            } catch (e: Exception) {
+                CTAG.e("EXC! " + e.message)
+                e.printStackTrace()
+                //
+                myTxtInf.text = "Interner Fehler."
                 myTxtInf.visibility = View.VISIBLE
                 myTxtInf.bringToFront()
             }
+        } else {
+            myPdfView.recycle() // reset to empty
             //
-            CTAG.d("setting pointers, adjust spinners...")
-            if( myCurDatePointer != iDate ) {
-                CTAG.d("date pointer changing from ${myCurDatePointer} to ${iDate}")
-                myCurDatePointer = iDate
-                myDateSpinner.setSelection(iDate)
-                //
-                // (re)fill Pages Spinner
-                val aa = getArrayAdapter()
-                val pagesList = myStringTree.get(iDate).second
-                var i = 0
-                for( pdf in pagesList ) {
-                    i += 1
-                    aa.add( pdf.name.removeSuffix(".pdf") + " (${i.toString()}/${pagesList.size})" )
-                }
-                aa.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                myPageSpinner.setAdapter(aa)
-            }
-            //
-            CTAG.d("page pointer changing from ${myCurPagePointer} to ${iPage}")
-            myCurPagePointer = iPage
-            myPageSpinner.setSelection(iPage)
-            //
-        } catch (e: Exception) {
-            CTAG.e("EXC! " + e.message)
-            //
-            myTxtInf.text = "Interner Fehler."
+            myTxtInf.text = "Keine Lese-Berechtigung für '${myRootDir.absolutePath}' oder Ordner leer."
             myTxtInf.visibility = View.VISIBLE
             myTxtInf.bringToFront()
         }
         //
-        CTAG.leave("now showing dir: " + dir
+        CTAG.leavi("now showing dir: " + dir
                 + "; PDF: " + fn + "; within: "+myRootDir.absolutePath)
     }
     //

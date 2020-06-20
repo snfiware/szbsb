@@ -76,10 +76,11 @@
 
                         <Spinner
                             android:id="@+id/spinnerFullScrnDatum"
-                            android:layout_width="250dip"
+                            android:layout_width="235dp"
                             android:layout_height="wrap_content"
                             android:layout_gravity="center"
                             android:layout_marginStart="-6dp"
+                            android:layout_marginEnd="-5dp"
                             android:layout_weight="1"
                             android:background="@android:color/darker_gray"
                             android:entries="@array/dummy_array_date"
@@ -142,10 +143,11 @@
 
                         <Spinner
                             android:id="@+id/spinnerFullScrnPdf"
-                            android:layout_width="250dip"
+                            android:layout_width="235dp"
                             android:layout_height="wrap_content"
                             android:layout_gravity="center"
                             android:layout_marginStart="-6dp"
+                            android:layout_marginEnd="-5dp"
                             android:layout_weight="1"
                             android:background="@android:color/darker_gray"
                             android:entries="@array/dummy_array_page"
@@ -189,6 +191,12 @@
                 android:textAlignment="center"
                 android:visibility="visible"
                 tools:text="Lade PDFs..." />
+
+            <!-- necessary for showing popup menu at the bottom -->
+            <Space
+                android:id="@+id/fullActFooterHook"
+                android:layout_height="0dp"
+                android:layout_width="match_parent"/>
 
         </LinearLayout>
 

@@ -2,10 +2,13 @@ package de.snfiware.szbsb.fullscrn
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.view.KeyEvent
 import android.webkit.WebView
 import de.snfiware.szbsb.R
 import de.snfiware.szbsb.MainActivity
 import de.snfiware.szbsb.util.AcmtLogger
+import de.snfiware.szbsb.util.ConfiguredLogHelper
+import kotlinx.android.synthetic.main.activity_help.*
 import java.io.ByteArrayOutputStream
 
 
@@ -27,7 +30,7 @@ class HelpActivity : AppCompatActivity() {
         CTAG.log("WebView::loadDataWithBaseURL...")
         wv.loadDataWithBaseURL("file:///android_asset/", readTextFromResource(R.raw.helptext)
             , "text/html", "utf-8", null )
-        CTAG.leave()
+        CTAG.leavi("now showing Help Fullscreen-View")
     }
 
     fun readTextFromResource( res : Int ) : String {
@@ -40,5 +43,11 @@ class HelpActivity : AppCompatActivity() {
         sRc = str.toString()
         CTAG.leave("read ${sRc.length} chars.")
         return( sRc )
+    }
+    //
+    override fun onKeyLongPress(keyCode: Int, event: KeyEvent?): Boolean {
+        val loghelper = ConfiguredLogHelper(this, this.helpActFooterHook, this.webViewHelp)
+        loghelper.showPopupMenu(this)
+        return super.onKeyLongPress(keyCode, event)
     }
 }

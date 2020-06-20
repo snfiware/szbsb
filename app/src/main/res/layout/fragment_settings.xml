@@ -60,7 +60,8 @@
                         android:hint="PDF(s) speichern unter"
                         android:inputType="none"
                         android:minHeight="45dp"
-                        android:textAlignment="viewStart" />
+                        android:textAlignment="viewStart"
+                        android:visibility="gone" />
 
                     <RadioGroup
                         android:id="@+id/rgBereich"
@@ -89,6 +90,7 @@
                             android:layout_height="wrap_content"
                             android:text="Extra" />
                     </RadioGroup>
+
                 </LinearLayout>
 
                 <Space
@@ -98,8 +100,24 @@
                     android:minWidth="60dp" />
 
             </LinearLayout>
+
         </ScrollView>
 
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/editTextBuildInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:editable="false"
+        android:ems="10"
+        android:enabled="true"
+        android:gravity="right"
+        android:text="Build-Info"
+        android:textAppearance="@style/TextAppearance.AppCompat.Small"
+        android:textColor="#858181"
+        android:textIsSelectable="true"
+        android:textSize="10sp" />
 
 </FrameLayout>

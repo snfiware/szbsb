@@ -34,4 +34,8 @@
         <item name="android:background">@color/black_overlay</item>
     </style>
 
+    <style name="MyCustomTabText" parent="TextAppearance.Design.Tab">
+        <!-- https://stackoverflow.com/questions/31471177/text-size-of-android-design-tablayout-tabs -->
+        <item name="android:textSize">20sp</item>
+    </style>
 </resources>

@@ -45,6 +45,10 @@ import java.util.*
 // the wild" without the need and knowledge to use adb and usb-debugging. A simple click on a menu item
 // extracts the app log as a text file from the logcat and opens the share menu.
 //
+// Do not forget to apply further resources:
+// - /res/menu/log_menu.xml
+// - /res/xml/file_paths.xml
+//
 val APPTAG_PLAIN = "BZ" // adjust to your needs - bear in mind android logging tags have limit in length of 23
 val APP_CLS_DELIM = "#" // this delimiter is put between the apptag and the classtag
 val CLS_MTH_DELIM = "." // this delimiter is put between the classtag and the methodtag

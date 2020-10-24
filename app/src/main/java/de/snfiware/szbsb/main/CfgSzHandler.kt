@@ -16,26 +16,23 @@
 package de.snfiware.szbsb.main
 
 import android.os.Environment
+import android.view.LayoutInflater
 import com.google.android.material.snackbar.Snackbar
 import android.view.View
 import de.snfiware.szbsb.MainActivity
-import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.TextView
 import androidx.core.view.children
 import de.snfiware.szbsb.R
 import de.snfiware.szbsb.main.Chip0Handler.Companion.isRealChip
-import de.snfiware.szbsb.main.SectionsPagerAdapter.Companion.getChipByIdx
 import de.snfiware.szbsb.main.SectionsPagerAdapter.Companion.getChipGroupByResId
 import de.snfiware.szbsb.main.SectionsPagerAdapter.Companion.getTextViewByResId
 import de.snfiware.szbsb.main.SectionsPagerAdapter.Companion.getViewByPosition
 import de.snfiware.szbsb.util.assert
-import de.snfiware.szbsb.util.convertDpToPxFloat
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import de.snfiware.szbsb.util.AcmtLogger
 import java.io.File
 import java.io.FileOutputStream
-import kotlin.math.roundToInt
 
 
 /** Diese Klasse implementiert zum einen das Verhalten für den Download-Button (onClick) und
@@ -137,71 +134,27 @@ class CfgSzHandler() : View.OnClickListener {
             return aRc
         }
 
-        fun createAllTopics( v :View, s: String ) {
-            CTAG.enter( "createAllTopics", s )
-            val chipGroup = v.findViewById<ChipGroup>(R.id.cgTopics)
-            val chip0 :Chip = getChipByIdx(chipGroup,0)
-            //var layoutChip0 = chip0.layoutParams
-            val width = MATCH_PARENT
-            val height= chip0.chipMinHeight.roundToInt() // convertDpToPxFloat(v.context, chip0.chipMinHeight).roundToInt()
-            //val tags = arrayOf("a1","b2","c3","d4","e5","f6","g7","h8","i9","j10","k11","a1","b2","c3","d4","e5","f6","g7","h8","i9","j10","k11")
-            val tags =
-                getArrayOfChipStrings(
-                    s
-                )
+        fun createAllChips( v :View, s :String, resIdChipGroup :Int, layoutId :Int ) {
+            val chipGroup = v.findViewById<ChipGroup>(resIdChipGroup)
+            val inflater = LayoutInflater.from(chipGroup.context)
+            val tags = getArrayOfChipStrings(s)
             CTAG.i("creating ${tags.indices} items...")
             for (index in tags.indices) {
-                val chip = Chip(chipGroup.context)
+                val chip = inflater.inflate(layoutId, chipGroup, false) as Chip
                 chip.text= "${tags[index]}"
-                chip.setTypeface( chip0.typeface, chip0.typeface.style )
-
-                chip.isClickable = true
-                chip.isCheckable = true
-
-                chipGroup.addView(chip,width,height)
+                chipGroup.addView(chip)
             }
+        }
+
+        fun createAllTopics( v :View, s :String ) {
+            CTAG.enter( "createAllTopics", s )
+            createAllChips( v, s, R.id.cgTopics, R.layout.chip_layout_topics )
             CTAG.leave()
         }
 
-        fun createAllPages( v :View, s: String ) {
+        fun createAllPages( v :View, s :String ) {
             CTAG.enter( "createAllPages", s )
-            val chipGroup = v.findViewById<ChipGroup>(R.id.cgPages)
-            val chip0 :Chip = getChipByIdx(chipGroup,0)
-            //#
-            //LayoutInflater.from(chipGroup.context).inflate(R.layout.fragment_chip_templates, v, false)
-            //
-            //var layoutChip0 = chip0.layoutParams
-            //val height = 32
-            val height= convertDpToPxFloat(
-                v.context,
-                chip0.height * 30f / 27f
-            )
-            //val width = height
-            //val tags = arrayOf("a1","b2","c3","d4","e5","f6","g7","h8","i9","j10","k11","a1","b2","c3","d4","e5","f6","g7","h8","i9","j10","k11")
-            val tags =
-                getArrayOfChipStrings(
-                    s
-                )
-            CTAG.i("creating ${tags.indices} items...")
-            for (index in tags.indices) {
-                //val chip = Chip(chipGroup.context,null, R.attr.CustomChipChoiceStyle)
-                val chip = Chip(chipGroup.context,null)
-                //chip.chipMinHeight = height
-                chip.height = height.toInt()
-                chip.width = height.toInt()
-                //chip.minWidth = height.toInt()
-                chip.chipCornerRadius = height
-                chip.chipStartPadding = 1f
-                chip.chipEndPadding = 0f
-                //
-                chip.text= "${tags[index]}"
-                chip.setTypeface( chip0.typeface, chip0.typeface.style )
-
-                chip.isClickable = true
-                chip.isCheckable = true
-
-                chipGroup.addView(chip)
-            }
+            createAllChips( v, s, R.id.cgPages, R.layout.chip_layout_pages )
             CTAG.leave()
         }
 

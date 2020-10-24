@@ -20,7 +20,7 @@ android {
         minSdkVersion 16
         targetSdkVersion 29
         versionCode 1
-        versionName '1.2.1'
+        versionName '1.2.2'
         archivesBaseName = "szbsb-v${versionName}"
         //
         flavorDimensions "scope", "abi"
@@ -71,7 +71,7 @@ android {
                 }
             }
             else if( pref == "practical" ) {
-                if( !(names.contains("x86") || names.contains("arm7")) || (names.contains("Public") && variant.buildType.name == "debug") ) {
+                if( !(names.contains("x86") || names.contains("arm7") || names.contains("universal")) || names.contains("Public") ) {
                     setIgnore(true)
                 }
             }
@@ -80,7 +80,7 @@ android {
                     setIgnore(true)
                 }
             }
-            else if( pref == "publish" ) {
+            else if( pref == "public" ) {
                 if( names.contains("Private") || names.contains("x86_64") || names.contains("arm64") ) {
                     setIgnore(true)
                 }
@@ -141,7 +141,7 @@ if( bIsReleaseBuild || !bBuildForPublic /*'debug private' is signed with our own
     //def s = keystoreProperties['storeTest']
     def s = keystoreProperties['storeFile']
     def f = file(s)
-    if( !f.exists() ) { // quick fix: use public debug build
+    if( !f.exists() ) { // quick fix: use build variant public debug build + gradle.properties: build.flavor.prefered=public
         throw new FileNotFoundException("file not found: '"+f.absolutePath+"'; input: '"+s+"'")
     }
 }}

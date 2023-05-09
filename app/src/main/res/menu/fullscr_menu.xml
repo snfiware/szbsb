@@ -7,6 +7,14 @@
         android:title="Hilfe anzeigen"
         app:showAsAction="always" />
 
+    <item
+        android:id="@+id/mi_zoom_plus"
+        android:checkable="true"
+        android:checked="false"
+        android:icon="@android:drawable/ic_menu_zoom"
+        android:title="Tiefes Zoomen ermöglichen"
+        app:showAsAction="never" />
+
     <item android:id="@+id/mi_delete_pdf"
         android:title="Einzelnes PDF (aktuelle Seite) löschen"
         app:showAsAction="never" />

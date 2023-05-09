@@ -27,10 +27,17 @@ class MyPdfView(context: Context?, set: AttributeSet?) : PDFView(context, set) {
     companion object {
         val CTAG = AcmtLogger("MPV")
 
-        fun setZoom(fsa: FullscreenActivity) {
-            fsa.fullscreen_content.setMaxZoom(5.9f)
-            fsa.fullscreen_content.setMidZoom(2.99f)
-            fsa.fullscreen_content.setMinZoom(1.0f)
+        fun setZoom(fsa: FullscreenActivity, bDefault: Boolean = true) {
+            if(bDefault) {
+                fsa.fullscreen_content.setMaxZoom(5.9f)
+                fsa.fullscreen_content.setMidZoom(2.99f)
+                fsa.fullscreen_content.setMinZoom(1.0f)
+            }
+            else {
+                fsa.fullscreen_content.setMaxZoom(20.0f)
+                fsa.fullscreen_content.setMidZoom(5.9f)
+                fsa.fullscreen_content.setMinZoom(1.0f)
+            }
         }
     }
 
@@ -53,6 +60,11 @@ class MyPdfView(context: Context?, set: AttributeSet?) : PDFView(context, set) {
         CTAG.i("start loading ${f.name} from ${f.parentFile.name}...")
         c.load()
         CTAG.leave()
+    }
+
+    override fun isZooming() : Boolean {
+        val D = 0.2f
+        return !(zoom > minZoom-D && zoom < minZoom+D)
     }
 
 }

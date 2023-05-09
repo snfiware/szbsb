@@ -21,7 +21,9 @@ import android.media.MediaScannerConnection
 import android.os.AsyncTask
 import android.view.View
 import android.widget.ProgressBar
+import android.widget.RadioGroup
 import android.widget.TextView
+import androidx.core.view.children
 import com.chaquo.python.PyObject
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
@@ -31,6 +33,7 @@ import com.google.android.material.snackbar.Snackbar
 import de.snfiware.szbsb.FullScreenForwarder
 import de.snfiware.szbsb.MainActivity
 import de.snfiware.szbsb.util.AcmtLogger
+import de.snfiware.szbsb.util.LogHelper
 import java.io.File
 
 
@@ -70,17 +73,27 @@ class AsyncDownloadHandler : AsyncTask<String, String, String>() {
         this.v=v
     }
 
+    fun setEnabledStatusOfControlsDuringDownload( bEnabled :Boolean) {
+        // Floating-Knöpfe
+        var fab = MainActivity.myMain?.findViewById(R.id.fabDownload) as FloatingActionButton
+        fab.isEnabled = bEnabled
+        //
+        fab = MainActivity.myMain?.findViewById(R.id.fabFullscreen) as FloatingActionButton
+        fab.isEnabled = bEnabled
+        //
+        // Radiobuttons
+        var rg = MainActivity.myMain?.findViewById(R.id.rgBereich) as RadioGroup
+        rg.children.forEach { it.isEnabled = bEnabled }
+    }
+
     override fun onPreExecute() {
         CTAGUI.enter("onPreExecute", "switch off buttons and show progress bar")
         super.onPreExecute()
         //
-        var fab = MainActivity.myMain?.findViewById(R.id.fabDownload) as FloatingActionButton
-        fab.isEnabled = false // Knopf während Download ausschalten
-        //
-        fab = MainActivity.myMain?.findViewById(R.id.fabFullscreen) as FloatingActionButton
-        fab.isEnabled = false // Knopf während Download ausschalten
+        setEnabledStatusOfControlsDuringDownload(false)
         //
         pb = MainActivity.myMain?.findViewById(R.id.progressBar) as ProgressBar
+        pb!!.keepScreenOn = true
         pb!!.visibility = View.VISIBLE
         pb!!.bringToFront()
         //
@@ -141,6 +154,14 @@ class AsyncDownloadHandler : AsyncTask<String, String, String>() {
     // call from python
     fun logFromPythonToAndroid(s :String, loglevel :Int) {
         CTAGPY.log_(s,loglevel)
+    }
+
+    // call from python
+    fun getFolderToPutSzLogFileToFromPython(): String {
+        CTAGPY.enter("getLogFolderPy" )
+        val sRc = MainActivity.myMain?.externalCacheDir.toString() + "/"
+        CTAGPY.leavi("rc: ${sRc}")
+        return sRc
     }
 
     // call from python
@@ -205,17 +226,17 @@ class AsyncDownloadHandler : AsyncTask<String, String, String>() {
     override fun onPostExecute(sRc: String) {
         CTAGUI.enter("onPostExecute", "sRc: "+sRc+"; myErr: "+myErr)
         pb = MainActivity.myMain?.findViewById(R.id.progressBar) as ProgressBar
+        pb!!.keepScreenOn = false
         pb!!.visibility = View.INVISIBLE
         //
-        var fab = MainActivity.myMain?.findViewById(R.id.fabDownload) as FloatingActionButton
-        fab.isEnabled = true // Knopf nach Download wieder einschalten
-        //
-        fab = MainActivity.myMain?.findViewById(R.id.fabFullscreen) as FloatingActionButton
-        fab.isEnabled = true // Knopf nach Download wieder einschalten
+        setEnabledStatusOfControlsDuringDownload(true)
         //
         if( myErr == E_OK ) {
-            Snackbar.make(v, "Fertig", Snackbar.LENGTH_SHORT).setAction("Action", null).show()
+            // Dieser 1ms lange Snack überschreibt die unendlich lang angezeigten Vorgänger
+            Snackbar.make(v, "Fertig", 1).setAction("Action", null).show()
+            //
             // Weiterleiten an Sekundärview
+            var fab = MainActivity.myMain?.findViewById(R.id.fabDownload) as FloatingActionButton
             FullScreenForwarder(MainActivity.myMain!!, fab).showFullScreen()
         }
         else {

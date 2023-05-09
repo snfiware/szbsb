@@ -72,17 +72,31 @@ class DatePageNavigator {
         CTAG.log("canRead '" + myRootDirString + "':" + f.canRead().toString() + "; isDir: " + f.isDirectory.toString() )
         myRootDir = f
         //
-        CTAG.log("registering navi listeners...")
-        myBtnDatLinks  = myFullScrAct.findViewById<Button>(R.id.buttonFullScrnDatumLinks ); myBtnDatLinks.setOnClickListener  { onClickDatumLinks() }
-        myBtnDatRechts = myFullScrAct.findViewById<Button>(R.id.buttonFullScrnDatumRechts); myBtnDatRechts.setOnClickListener { onClickDatumRechts() }
-        myBtnPdfLinks  = myFullScrAct.findViewById<Button>(R.id.buttonFullScrnPdfLinks   ); myBtnPdfLinks.setOnClickListener  { onClickPdfLinks() }
-        myBtnPdfRechts = myFullScrAct.findViewById<Button>(R.id.buttonFullScrnPdfRechts  ); myBtnPdfRechts.setOnClickListener { onClickPdfRechts() }
-        CTAG.log("registered listeners.")
-        //
         myPdfView= myFullScrAct.findViewById<MyPdfView> (R.id.fullscreen_content)
         myTxtInf = myFullScrAct.findViewById<TextView>(R.id.textViewFullScrnInfo)
         myDateSpinner = myFullScrAct.findViewById<Spinner>(R.id.spinnerFullScrnDatum)
         myPageSpinner = myFullScrAct.findViewById<Spinner>(R.id.spinnerFullScrnPdf)
+        //
+        CTAG.log("registering navi listeners...")
+        myBtnDatLinks  = myFullScrAct.findViewById<Button>(R.id.buttonFullScrnDatumLinks ); myBtnDatLinks.setOnClickListener  { onClickDatumLinks() }
+        myBtnDatRechts = myFullScrAct.findViewById<Button>(R.id.buttonFullScrnDatumRechts); myBtnDatRechts.setOnClickListener { onClickDatumRechts() }
+        myBtnPdfLinks  = myFullScrAct.findViewById<Button>(R.id.buttonFullScrnPdfLinks)
+        myBtnPdfLinks.setOnClickListener {
+            val lastPdfWasZooming = myPdfView.isZooming()
+            onClickPdfLinks() // navigate to previous pdf
+            if( lastPdfWasZooming ) {
+                myFullScrAct.toggle() // hide navi menu
+            }
+        }
+        myBtnPdfRechts = myFullScrAct.findViewById<Button>(R.id.buttonFullScrnPdfRechts)
+        myBtnPdfRechts.setOnClickListener {
+            val lastPdfWasZooming = myPdfView.isZooming()
+            onClickPdfRechts() // navigate to next pdf
+            if( lastPdfWasZooming ) {
+                myFullScrAct.toggle() // hide navi menu
+            }
+        }
+        CTAG.log("registered listeners.")
         //
         CTAG.log("registering icon listeners...")
         val icon1 = myFullScrAct.findViewById<ImageView>(R.id.imageViewDatum)

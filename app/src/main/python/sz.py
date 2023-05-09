@@ -37,7 +37,7 @@ class MyAdapter(HTTPAdapter):
 		self.poolmanager = PoolManager(num_pools=connections,
 										maxsize=maxsize,
 										block=block,
-										ssl_version=ssl.PROTOCOL_TLSv1)
+										ssl_version=ssl.PROTOCOL_TLS) # not sure what is better: PROTOCOL_SSLv23
 # Plus below:
 # s = requests.Session()
 # s.mount('https://', MyAdapter())
@@ -182,7 +182,7 @@ def load_config(sAreaToLoad):
 	downloadFolderFromCfg = ""
 	downloadFolder = "./sz"
 	if is_android():
-		downloadFolder = "/storage/emulated/0/Download/szDefaultFromSzPyScript"
+		downloadFolder = "/storage/emulated/0/Download/szDefaultFromSzBsbPyScript"
 	myPages = ['1','2','3']
 	myTopics = ['Politik']
 	# Load config parameters from file
@@ -250,7 +250,7 @@ def urlStringReplace(myUrl):
 # wird benutzt um nix doppelt zu holen und die Reihenfolge zu verwalten
 global dictDownloads #= {}
 # dictDownloads = {<page>:{'url':<url>,'from':<topic>|'page','idx':<number>,'pos':<number>}
-FAILOVER = 90 # page number to start with on failover when trying to extract from html
+FAILOVER = 73 # page number to start with on failover when trying to extract from html
 #
 def getKey(intOrStr):
 	key = int(str(intOrStr))
@@ -270,7 +270,8 @@ def getFileNameForPdf( k, i ):
 	#
 	return str(sRc+".pdf").replace('/','+')
 #
-def memorizeUrl(anykey, n2ndKey, urlStartIdx, urlString, idx, topic='page', maxExtra=9):
+def memorizeUrl(anykey, n2ndKey, urlStartIdx, urlString, idx, topic='page', maxExtra=25):
+	outv("1:%s 2:%s start:%s idx:%s topic:%s maxExtra:%s url:%s"%(str(anykey),str(n2ndKey),str(urlStartIdx),str(idx),str(topic),str(maxExtra),urlString))
 	skey = getKey(anykey) # just for validating
 	skey = getKey(n2ndKey)# just for validating
 	key = int(str(anykey))
@@ -438,9 +439,8 @@ def getUrlByTopic( ws, topic, baseUrl, callerIndex, callerTotal ):
 						except:
 							out("cannot convert '%s' to integer - give last try..."%bufi)
 							try:
-								bufi = re.sub("[^0-9]", "", bufi)
 								foundPageNumber2 = FAILOVER
-								foundPageNumber = int(bufi)
+								foundPageNumber = FAILOVER
 							except: out("IMPOSSIBLE: '%s'"%bufi)
 					else:
 						out("Spitze Klammer nicht gefunden")
@@ -512,10 +512,13 @@ def getPdf(c, baseUrl, myUrl, headers, folders, filename):
 def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 	out("Login and navigate to main...")
 	showAndroidSnack(adh,"Authentifizierung...")
-	#
-	myUrl = 'http://emedia1.bsb-muenchen.de/han/SZ' # ist noch nicht https und ohne headers
+	# act like a browser
+	headers = {
+		'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36'
+	}
+	myUrl = 'http://emedia1.bsb-muenchen.de/han/SZ' # ist noch nicht https
 	out("\n\n>>>CALLING: " + myUrl)
-	r = c.get(myUrl) # erster Call scheint unnützt, ist aber notwendig
+	r = c.get(myUrl, headers=headers, allow_redirects=True) # erster Call scheint unnützt, ist aber notwendig
 	out("############################## >>> forwarded-url: " + r.url + " <<<")
 	out("r.status_code: " + str(r.status_code))
 	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
@@ -540,7 +543,7 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 		,'loginType': ''
 			   }
 	#
-	myUrl = 'https://emedia1.bsb-muenchen.de/hhauth/login' # könnte man sich auch aus der response holen
+	myUrl = 'https://login.emedia1.bsb-muenchen.de/hhauth/login' # könnte man sich auch aus der response holen
 	outi("\n\n>>>CALLING: " + myUrl)
 	r = c.post(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True)
 	#myUrl = r.url
@@ -731,6 +734,38 @@ def filterAdjacentUrlDuplicates():
 			myPrevBid = myBid
 	out("filtered %i/%i items."%(j,i))
 #
+def filterAllBidUrlDuplicates():
+	i = 0
+	j = 0
+	bidKeyRelator = {}
+	for k in sorted(dictDownloads.keys()):
+		i += 1
+		myBid = extractBid(dictDownloads[k]['url'])
+		if myBid not in bidKeyRelator:
+			bidKeyRelator[myBid] = k
+		else:
+			outi("[%02i]removing key '%s' with bid '%s'"%(i,str(k),myBid))
+			dictDownloads.pop(k)
+			j += 1
+	outi("filtered %i/%i items."%(j,i))
+#
+def logWsToFile(ws):
+	try:
+		filename = "lastSzWebSiteDownloaded.html"
+		folders = "./"
+		if is_android():
+			folders = adh.getFolderToPutSzLogFileToFromPython()
+		out("creating folder(s): " + folders)
+		if not os.path.exists(folders): os.makedirs(folders)
+		out("opening file: " + filename)
+		filepath = folders+filename
+		fd = open(filepath, 'w')
+		out("writing content of length: %i"%(len(ws)))
+		fd.write(ws)
+		fd.close()
+	except Exception as e:
+		out("EXC: "+str(e)) # ignore
+#
 ##########
 # This executor is operated differently depending on the platform it is running on
 # If on android: adh is an object of kotlin class AsyncDownloadHandler. It shows progress advance.
@@ -784,6 +819,9 @@ def executeScript( pAdh, strContext, sAreaToLoad = HAUPTAUSGABE ):
 			r.encoding = "UTF-8"
 			ws = r.text.replace("&amp;","&")
 			outv("r.text: \n" + ws)
+		
+		outi("Start parsing downloaded website for pages and topics - len(ws)=%i"%len(ws))
+		logWsToFile(ws)
 		#
 		# Starting downloads, first by page, then by topic
 		outi("\n-----------------------------\n--------- GET PAGES ---------\n-----------------------------")
@@ -813,13 +851,14 @@ def executeScript( pAdh, strContext, sAreaToLoad = HAUPTAUSGABE ):
 			i += 1
 			out("Processing PDFs by topic %i/%i (%s)..." % (i,len(myTopics),m) )
 			getUrlByTopic(ws, m, baseUrl, i, len(myTopics))
-		out("done with topics, now %i:\n %s"%(len(dictDownloads),'\n '.join('{}: {}'.format("%02i"%(k), "[%i] %s"%(v['pos'],v['url'][96:999])) for k, v in dictDownloads.items())))
+		outi("done with topics, now %i:\n %s"%(len(dictDownloads),'\n '.join('{}: {}'.format("%02i"%(k), "[%i] %s"%(v['pos'],v['url'][96:999])) for k, v in dictDownloads.items())))
 		#highestKey = sorted(dictDownloads.keys())[-1]
 		#out("highestKey: "+str(highestKey))
 		#dictDownloads[highestKey+1] = dictDownloads[highestKey]
 		#out("done with fake, now %i:\n %s"%(len(dictDownloads),'\n '.join('{}: {}'.format("%02i"%(k), "[%i] %s"%(v['pos'],v['url'][96:999])) for k, v in dictDownloads.items())))
-		filterAdjacentUrlDuplicates()
-		out("done with filter, now %i:\n %s"%(len(dictDownloads),'\n '.join('{}: {}'.format("%02i"%(k), "[%i] %s"%(v['pos'],v['url'][96:999])) for k, v in dictDownloads.items())))
+		#filterAdjacentUrlDuplicates()
+		filterAllBidUrlDuplicates()
+		outi("done with filter, now %i:\n %s"%(len(dictDownloads),'\n '.join('{}: {}'.format("%02i"%(k), "[%i] %s"%(v['pos'],v['url'][96:999])) for k, v in dictDownloads.items())))
 		#
 		outi("\n------------------------------\n--------- DOWNLOAD ---------\n------------------------------")
 		assert(len(dictDownloads)>0),"Es wurde kein PDF zum Herunterladen gefunden. Prüfen Sie Ihre Auswahl."

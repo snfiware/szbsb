@@ -66,7 +66,7 @@ class FullscreenActivity : AppCompatActivity() {
             )
             if (ptrCnt == 3) {
                 if (e.action == 517) {
-                    CTAG.log("dTouchEvent -> resetZoomWithAnimation")
+                    CTAG.d("dTouchEvent -> resetZoomWithAnimation")
                     fullscreen_content.resetZoomWithAnimation()
                 }
 /*
@@ -103,13 +103,14 @@ class FullscreenActivity : AppCompatActivity() {
                         // we got a swipe
                         if (fullscreen_content.isZooming()) {
                             // do nothing when the pdf is zoomed in
+                            CTAG.d("swipe but zoomed - ignoring")
                         } else {
                             // navigate when the pdf is zoomed out fully
                             if (myLastUpPos.x < myLastDownPos.x) {
-                                CTAG.log("dTouchEvent - Nach rechts navigieren...")
+                                CTAG.d("dTouchEvent - Nach rechts navigieren...")
                                 myNavi.onClickPdfRechts()
                             } else {
-                                CTAG.log("dTouchEvent - Nach links navigieren...")
+                                CTAG.d("dTouchEvent - Nach links navigieren...")
                                 myNavi.onClickPdfLinks()
                             }
                         }
@@ -126,7 +127,7 @@ class FullscreenActivity : AppCompatActivity() {
     private val mHideHandler = Handler()
     private val mHidePart2Runnable = Runnable {
         // Delayed removal of status and navigation bar
-        CTAG.log("Hide Runnable Part 2")
+        CTAG.i("Hide Runnable Part 2")
         // Note that some of these constants are new as of API 16 (Jelly Bean)
         // and API 19 (KitKat). It is safe to use them, as they are inlined
         // at compile-time and do nothing on earlier devices.
@@ -139,7 +140,7 @@ class FullscreenActivity : AppCompatActivity() {
                     SYSTEM_UI_FLAG_HIDE_NAVIGATION
     }
     private val mShowPart2Runnable = Runnable {
-        CTAG.log("Show Runnable")
+        CTAG.d("Show Runnable")
         // Delayed display of UI elements
         supportActionBar?.show()
         sz_fullscreen_content_controls.visibility = VISIBLE
@@ -152,15 +153,38 @@ class FullscreenActivity : AppCompatActivity() {
      * while interacting with activity UI.
      */
     private val mDelayHideTouchListener = OnTouchListener { _, _ ->
-        CTAG.log("OnTouchListener")
+        CTAG.d("OnTouchListener")
         if (AUTO_HIDE) {
             delayedHide(AUTO_HIDE_DELAY_MILLIS)
         }
         false
     }
 
+    override fun onStop() {
+        CTAG.i("onStop")
+        super.onStop()
+    }
+
+    override fun onRestart() {
+        CTAG.i("onRestart")
+        super.onRestart()
+    }
+
+    // this seems to produce the desired behavior - switching on the display again leads to
+    // the same state of the navigation menu as before (when the display was turned off)
+    override fun onResume() {
+        CTAG.i("onResume")
+        super.onResume()
+        if( !mVisible ) {
+            show()
+            hide()
+        } else {
+            CTAG.v("naviMenu is shown already - nothing to do")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        CTAG.enter("onCreate","savedInstanceState: $savedInstanceState")
+        CTAG.enti("onCreate","savedInstanceState: $savedInstanceState")
         fsa = this
         super.onCreate(savedInstanceState)
 
@@ -173,6 +197,7 @@ class FullscreenActivity : AppCompatActivity() {
         }
 
         mVisible = true
+        fullscreen_content.keepScreenOn = false
 
         //fullscreen_frame.setOnTouchListener(this)
 
@@ -210,7 +235,7 @@ class FullscreenActivity : AppCompatActivity() {
     }
 
     fun rebuildNavigator( d :DeleteHandler? ) {
-        CTAG.enter("rebuildNavi", "d: $d")
+        CTAG.enti("rebuildNavi", "d: $d")
         myNavi = DatePageNavigator(
             this,
             CfgSzHandler.getDownloadFolderFromUI()
@@ -225,7 +250,7 @@ class FullscreenActivity : AppCompatActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        CTAG.enter("onCreaOptMenu", "menu: $menu")
+        CTAG.enti("onCreaOptMenu", "menu: $menu")
         super.onCreateOptionsMenu(menu)
         myMenu = menu!!
         val inflater = this.menuInflater
@@ -235,13 +260,24 @@ class FullscreenActivity : AppCompatActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        CTAG.enter("onOptItemSel", "item: ${item.title} selected")
+        CTAG.enti("onOptItemSel", "item: ${item.title} selected")
         var bRc = true
         val id = item.itemId
         if (id == android.R.id.home) {
             CTAG.i("Navigate (back) to home...")
             // This ID represents the Home or Up button.
             NavUtils.navigateUpFromSameTask(this)
+        }
+        else if (id == R.id.mi_zoom_plus) {
+            if(item.isChecked) {
+                CTAG.i("Zoom auf Standard...")
+                item.isChecked = false
+                MyPdfView.setZoom(this,true)
+            } else {
+                CTAG.i("Zoom erweitern...")
+                item.isChecked = true
+                MyPdfView.setZoom(this,false)
+            }
         }
         else if (id == R.id.mi_help) {
             CTAG.i("Navigate to help...")
@@ -260,9 +296,12 @@ class FullscreenActivity : AppCompatActivity() {
         CTAG.leave("id: $id; bRc: $bRc")
         return bRc
     }
-    //
+
+    /**
+     * Shows or hides the navigation menu
+     */
     fun toggle() {
-        CTAG.log("toggle; mVisible: " + mVisible.toString())
+        CTAG.i("toggle; mVisible: " + mVisible.toString())
         if (mVisible) {
             hide()
         } else {
@@ -280,6 +319,7 @@ class FullscreenActivity : AppCompatActivity() {
         // Schedule a runnable to remove the status and navigation bar after a delay
         mHideHandler.removeCallbacks(mShowPart2Runnable)
         mHideHandler.postDelayed(mHidePart2Runnable, UI_ANIMATION_DELAY.toLong())
+        fullscreen_content.keepScreenOn = true
     }
     //
     private fun show() {
@@ -288,6 +328,7 @@ class FullscreenActivity : AppCompatActivity() {
         fullscreen_content.systemUiVisibility =
                     SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
                     SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        fullscreen_content.keepScreenOn = false
         mVisible = true
 
         // Schedule a runnable to display UI elements after a delay
@@ -302,6 +343,7 @@ class FullscreenActivity : AppCompatActivity() {
         CTAG.i("delayedHide: " + delayMillis.toString() )
         mHideHandler.removeCallbacks(mHideRunnable)
         mHideHandler.postDelayed(mHideRunnable, delayMillis.toLong())
+        fullscreen_content.keepScreenOn = true
     }
     //
     companion object {

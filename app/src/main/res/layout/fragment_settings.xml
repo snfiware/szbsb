@@ -37,20 +37,22 @@
                     <EditText
                         android:id="@+id/editTextBsbId"
                         android:layout_width="match_parent"
-                        android:layout_height="45dp"
+                        android:layout_height="wrap_content"
                         android:ems="10"
                         android:hint="BSB-Kennung"
                         android:inputType="none|number"
-                        android:minHeight="45dp" />
+                        android:minHeight="45dp"
+                        android:textSize="30sp" />
 
                     <EditText
                         android:id="@+id/editTextPassword"
                         android:layout_width="match_parent"
-                        android:layout_height="45dp"
+                        android:layout_height="wrap_content"
                         android:ems="10"
                         android:hint="Passwort"
                         android:inputType="none|textWebPassword"
-                        android:minHeight="45dp" />
+                        android:minHeight="45dp"
+                        android:textSize="30sp" />
 
                     <EditText
                         android:id="@+id/editTextFolder"
@@ -60,6 +62,7 @@
                         android:hint="PDF(s) speichern unter"
                         android:inputType="none"
                         android:minHeight="45dp"
+                        android:textSize="24sp"
                         android:textAlignment="viewStart"
                         android:visibility="gone" />
 
@@ -73,22 +76,31 @@
 
                         <RadioButton
                             android:id="@+id/rbHauptausgabe"
-                            android:layout_width="200dp"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:checked="true"
-                            android:text="Süddeutsche Zeitung Hauptausgabe" />
+                            android:text="Süddeutsche Zeitung Hauptausgabe"
+                            android:textSize="24sp" />
 
                         <RadioButton
                             android:id="@+id/rbMagazin"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Magazin" />
+                            android:layout_marginTop="10dp"
+                            android:text="Magazin"
+                            android:textSize="24sp" />
 
                         <RadioButton
                             android:id="@+id/rbExtra"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Extra" />
+                            android:layout_marginTop="10dp"
+                            android:text="Extra"
+                            android:textSize="24sp" />
+
+                        <Space
+                            android:layout_width="match_parent"
+                            android:layout_height="70dp" />
                     </RadioGroup>
 
                 </LinearLayout>

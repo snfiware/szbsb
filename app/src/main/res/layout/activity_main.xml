@@ -24,10 +24,16 @@
             android:id="@+id/tabs"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            app:tabTextAppearance="@style/MyCustomTabText"
             android:background="?attr/colorPrimary"
             app:tabIndicatorColor="@color/colorAccent"
             app:tabSelectedTextColor="@color/colorAccent" />
     </com.google.android.material.appbar.AppBarLayout>
+
+    <!--
+            app:tabTextAppearance="@style/MyCustomTabText"
+            app:tabTextAppearance="@style/TextAppearance.AppCompat.Large" MyCustomTabText
+    -->
 
     <androidx.viewpager.widget.ViewPager
         android:id="@+id/view_pager"
@@ -51,7 +57,7 @@
             android:layout_gravity="bottom|end"
             android:layout_margin="@dimen/fab_margin"
             app:backgroundTint="@color/colorAccent"
-            app:maxImageSize="35dp"
+            app:maxImageSize="40dp"
             app:rippleColor="#00FFFFFF"
             app:srcCompat="@android:drawable/ic_menu_help"
             app:tint="@android:color/white" />
@@ -64,7 +70,7 @@
             android:layout_margin="@dimen/fab_margin"
             android:layout_weight="1"
             app:backgroundTint="@color/colorAccent"
-            app:maxImageSize="30dp"
+            app:maxImageSize="35dp"
             app:rippleColor="#00FFFFFF"
             app:srcCompat="@android:drawable/stat_sys_download"
             app:tint="@android:color/white" />

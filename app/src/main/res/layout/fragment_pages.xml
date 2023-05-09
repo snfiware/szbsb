@@ -37,19 +37,35 @@
                     android:checkable="true"
                     android:clickable="true"
                     android:text="Alle"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Body2"
-                    android:textSize="14sp"
+                    tools:text="Alle"
+                    android:textAppearance="@style/Base.TextAppearance.AppCompat.Large"
                     android:textStyle="bold"
                     android:typeface="normal"
-                    android:visibility="visible"
-                    tools:text="Alle" />
+                    android:visibility="visible"/>
 
-                <View
-                    android:id="@+id/dividerP"
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="2dp"
-                    android:background="?android:attr/listDivider"
-                    android:padding="5dp" />
+                    android:layout_height="wrap_content"
+                    android:longClickable="false"
+                    android:orientation="vertical"
+                    android:paddingLeft="16dp"
+                    android:paddingRight="16dp" >
+
+                    <Space
+                        android:layout_width="wrap_content"
+                        android:layout_height="5dp" />
+
+                    <View
+                        android:id="@+id/dividerP"
+                        android:layout_width="match_parent"
+                        android:layout_height="2dp"
+                        android:background="?android:attr/listDivider" />
+
+                    <Space
+                        android:layout_width="wrap_content"
+                        android:layout_height="5dp" />
+
+                </LinearLayout>
 
             </com.google.android.material.chip.ChipGroup>
         </LinearLayout>

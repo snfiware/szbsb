@@ -32,12 +32,13 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.poolmanager import PoolManager
 import ssl
-class MyAdapter(HTTPAdapter):
-	def init_poolmanager(self, connections, maxsize, block=False):
-		self.poolmanager = PoolManager(num_pools=connections,
-										maxsize=maxsize,
-										block=block,
-										ssl_version=ssl.PROTOCOL_TLS) # not sure what is better: PROTOCOL_SSLv23
+#ssl._create_default_https_context = ssl._create_unverified_context
+#class MyAdapter(HTTPAdapter):
+#	def init_poolmanager(self, connections, maxsize, block=False):
+#		self.poolmanager = PoolManager(num_pools=connections,
+#										maxsize=maxsize,
+#										block=block,
+#										ssl_version=ssl.PROTOCOL_TLS) # not sure what is better: PROTOCOL_SSLv23 / PROTOCOL_TLS
 # Plus below:
 # s = requests.Session()
 # s.mount('https://', MyAdapter())
@@ -523,15 +524,40 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 	out("r.status_code: " + str(r.status_code))
 	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
 	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
+	#out("r.text: " + r.text)
 	#
 	out("Starte Authentifzierung...")
 	# prepare header + data=payload - we work with one combined set for all calls
 	headers = {
 		'Content-Type': 'application/x-www-form-urlencoded'
-		,'Origin': 'https://emedia1.bsb-muenchen.de'
-		,'Referer': 'https://emedia1.bsb-muenchen.de/login/bsbLogin.html'
-		,'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36'
+		, 'Referer': 'https://login.emedia1.bsb-muenchen.de/'
+		, 'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/112.0'
+		, 'Upgrade-Insecure-Requests': '1'
+		, 'Sec-Fetch-Dest': 'document'
+		, 'Sec-Fetch-Mode': 'navigate'
+		, 'Sec-Fetch-Site': 'same-site'
+		, 'Sec-Fetch-User': username
 	}
+	#
+	#myUrl = 'https://login.emedia1.bsb-muenchen.de/hhauth/login' # könnte man sich auch aus der response holen
+	#myUrl = 'https://emedia1.bsb-muenchen.de/Shibboleth.sso/Login?target=https://emedia1.bsb-muenchen.de/hanshibboleth//login&entityID=https://idp.bsb-muenchen.de/shibboleth'
+	myUrl = 'https://emedia1.bsb-muenchen.de/Shibboleth.sso/Login?target=https%3A%2F%2Femedia1.bsb-muenchen.de%2Fhanshibboleth%2f/login&entityID=https%3A%2F%2Fidp.bsb-muenchen.de%2Fshibboleth'
+	outi("\n\n>>>CALLING: " + myUrl)
+	r = c.get(myUrl, headers=headers, cookies=c.cookies, allow_redirects=True, verify=False)
+	#myUrl = r.url
+	out("############################## >>> forwarded-url: " + r.url + " <<<")
+	outi("r.status_code: " + str(r.status_code))
+	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
+	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
+	out("r.text: " + r.text)
+	#
+	try:
+		myUrl = 'https://' + [k.domain for k in c.cookies if k.name=='JSESSIONID'][0] + \
+				[k.path   for k in c.cookies if k.name=='JSESSIONID'][0] + '/j_security_check'
+	except IndexError as e:
+		oute("EXC: Session-Cookie not found: "+str(e))
+		raise Exception("Auth. failed - check user/pw")
+	#
 	payload = {'user': username
 		,'plainuser': username
 		,'password': password
@@ -541,26 +567,9 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 		,'j_password': ''
 		,'ipLoginApplication': 'LIBNET'
 		,'loginType': ''
-			   }
-	#
-	myUrl = 'https://login.emedia1.bsb-muenchen.de/hhauth/login' # könnte man sich auch aus der response holen
+	}
 	outi("\n\n>>>CALLING: " + myUrl)
-	r = c.post(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True)
-	#myUrl = r.url
-	out("############################## >>> forwarded-url: " + r.url + " <<<")
-	outi("r.status_code: " + str(r.status_code))
-	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
-	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
-	#
-	try:
-		myUrl = 'https://' + [k.domain for k in c.cookies if k.name=='JSESSIONID'][0] + \
-				[k.path   for k in c.cookies if k.name=='JSESSIONID'][0] + '/j_security_check'
-	except IndexError as e:
-		oute("EXC: Session-Cookie not found: "+str(e))
-		raise Exception("Auth. failed - check user/pw")
-	#
-	outi("\n\n>>>CALLING: " + myUrl)
-	r = c.post(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True)
+	r = c.post(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True, verify=False)
 	out("############################## >>> forwarded-url: " + r.url + " <<<")
 	outi("r.status_code: " + str(r.status_code))
 	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
@@ -590,7 +599,7 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 	#
 	myUrl = extractedUrlGanzseiten
 	outi("\n\n>>>CALLING Ganzseiten: " + myUrl)
-	r = c.get(myUrl, headers=headers, cookies=c.cookies)
+	r = c.get(myUrl, headers=headers, cookies=c.cookies, verify=False)
 	out("############################## >>> forwarded-url: " + r.url + " <<<")
 	outi("r.status_code: " + str(r.status_code))
 	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
@@ -788,7 +797,7 @@ def executeScript( pAdh, strContext, sAreaToLoad = HAUPTAUSGABE ):
 	# the session will gather the cookies and hold them for preceeding calls
 	with requests.Session() as c: # "connection"
 		# apply WORKAROUND "android qpython cipher", see above
-		c.mount('https://', MyAdapter())
+		#c.mount('https://', MyAdapter())
 		#
 		r,baseUrl,headers,payload = loginAndNavigateToToday(username,password,adh,c,sAreaToLoad)
 		#

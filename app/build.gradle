@@ -20,7 +20,7 @@ android {
         minSdkVersion 16
         targetSdkVersion 29
         versionCode 1
-        versionName '1.2.2'
+        versionName '1.2.4'
         archivesBaseName = "szbsb-v${versionName}"
         //
         flavorDimensions "scope", "abi"
@@ -158,11 +158,12 @@ android {
     defaultConfig {
         python { //https://chaquo.com/chaquopy/doc/current/android.html
             def s2 = project.getProperties().get("python.fullPath.executable")
+            System.println( s2 )
             def f2 = file(s2)    // check gradle.properties
             if( !f2.exists() ) { // check gradle.properties
                 throw new FileNotFoundException("file not found: '"+f2.absolutePath+"'; input: '"+s2+"'")
             }
-            buildPython = s2 //project.getProperties().get("python.fullPath.executable")
+            buildPython "/usr/bin/python3.8" // = s2 //project.getProperties().get("python.fullPath.executable")
             pyc { src bIsReleaseBuild }
             pip { install "requests" }
         }

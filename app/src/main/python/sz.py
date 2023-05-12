@@ -536,7 +536,7 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 		, 'Sec-Fetch-Dest': 'document'
 		, 'Sec-Fetch-Mode': 'navigate'
 		, 'Sec-Fetch-Site': 'same-site'
-		, 'Sec-Fetch-User': username
+		, 'Sec-Fetch-User': '?1'
 	}
 	#
 	#myUrl = 'https://login.emedia1.bsb-muenchen.de/hhauth/login' # könnte man sich auch aus der response holen
@@ -549,7 +549,7 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 	outi("r.status_code: " + str(r.status_code))
 	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
 	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
-	out("r.text: " + r.text)
+	#out("r.text: " + r.text)
 	#
 	try:
 		myUrl = 'https://' + [k.domain for k in c.cookies if k.name=='JSESSIONID'][0] + \
@@ -558,15 +558,14 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 		oute("EXC: Session-Cookie not found: "+str(e))
 		raise Exception("Auth. failed - check user/pw")
 	#
-	payload = {'user': username
-		,'plainuser': username
-		,'password': password
-		,'Service': ''
-		,'auth': 'auto'
-		,'j_username': 'performIpLogin'
-		,'j_password': ''
-		,'ipLoginApplication': 'LIBNET'
-		,'loginType': ''
+	myUrl = "https://idp.bsb-muenchen.de/idp/Authn/BSB?conversation=e1s1"
+	#
+	payload = {'custId': '3487',
+			   'conversation': 'null',
+			   'fromLoginPage': 'true',
+			   'username': username,
+			   'password': password,
+			   'login': 'Login'
 	}
 	outi("\n\n>>>CALLING: " + myUrl)
 	r = c.post(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True, verify=False)
@@ -574,6 +573,27 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 	outi("r.status_code: " + str(r.status_code))
 	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
 	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
+	#out("r.text: " + r.text)
+	#
+	myUrl = "https://idp.bsb-muenchen.de/idp/profile/SAML2/Redirect/SSO?execution=e1s2"
+	#
+	payload = { "_shib_idp_consentIds": [
+					   "eduPersonEntitlement",
+					   "eduPersonScopedAffiliation",
+					   "eduPersonTargetedID",
+					   "uid"
+				   ],
+				   "_shib_idp_consentOptions": "_shib_idp_doNotRememberConsent",
+				   "_eventId_proceed": "Akzeptieren"
+	}
+	#
+	outi("\n\n>>>CALLING: " + myUrl)
+	r = c.post(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True, verify=False)
+	out("############################## >>> forwarded-url: " + r.url + " <<<")
+	outi("r.status_code: " + str(r.status_code))
+	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
+	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
+	out("r.text: " + r.text)
 	#
 	if( r.status_code == 200 ):
 		showAndroidSnack(adh,"Lese %s..."%(sAreaToLoad))

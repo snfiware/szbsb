@@ -593,6 +593,52 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 	outi("r.status_code: " + str(r.status_code))
 	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
 	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
+	out("r.text: " + r.text[16000:])
+	#
+	ws = r.text
+	myUrl = ""
+	lookupToken = '<form action="'
+	idxFound = ws.find(lookupToken)
+	endAttribToken = '"'
+	if idxFound != -1:
+		idxFound += len(lookupToken)
+		idxEndUrl = ws.find(endAttribToken,idxFound)
+		if idxEndUrl != -1:
+			myUrl = ws[idxFound : idxEndUrl]
+			myUrl = myUrl.replace('&#x3a;',':')
+			myUrl = myUrl.replace('&#x2f;','/')
+	#
+	lookupToken = ' name="RelayState" value="'
+	relayState = ""
+	idxFound = ws.find(lookupToken)
+	if idxFound != -1:
+		idxFound += len(lookupToken)
+		idxEndUrl = ws.find(endAttribToken,idxFound)
+		if idxEndUrl != -1:
+			relayState = ws[idxFound : idxEndUrl]
+	#
+	lookupToken = ' name="SAMLResponse" value="'
+	samlResponse = ""
+	idxFound = ws.find(lookupToken)
+	if idxFound != -1:
+		idxFound += len(lookupToken)
+		idxEndUrl = ws.find(endAttribToken,idxFound)
+		if idxEndUrl != -1:
+			samlResponse = ws[idxFound : idxEndUrl]
+	#
+	payload = { "submit": "Continue",
+				"action": "Continue",
+				"RelayState": relayState,
+				"SAMLResponse": samlResponse
+	}
+	#
+	outd("relayState: " + relayState + "; len(samlResponse): " + str(len(samlResponse)))
+	outi("\n\n>>>CALLING: " + myUrl)
+	r = c.post(myUrl, headers=headers, data=payload, cookies=c.cookies, allow_redirects=True, verify=False)
+	out("############################## >>> forwarded-url: " + r.url + " <<<")
+	outi("r.status_code: " + str(r.status_code))
+	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
+	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
 	out("r.text: " + r.text)
 	#
 	if( r.status_code == 200 ):

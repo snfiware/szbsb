@@ -21,6 +21,9 @@ import os
 from os import environ
 import sys
 import re
+import base64
+import zlib
+import urllib
 print("sz.py - first contact - environ:%s"%(environ))
 #from pathlib import Path # sudo apt-get install python-pathlib
 #import urllib            # sudo apt-get install python-urllib3
@@ -550,6 +553,34 @@ def loginAndNavigateToToday( username, password, adh, c, sAreaToLoad ):
 	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
 	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
 	#out("r.text: " + r.text)
+	#
+	_opensaml_req_cookie_string = "_opensaml_req_cookie%3A"
+	try:
+		_opensaml_req_cookie = [k for k in c.cookies if k.name.startswith(_opensaml_req_cookie_string)][0]
+		_opensaml_req_cookie_value = _opensaml_req_cookie.value
+		_opensaml_req_cookie_name = _opensaml_req_cookie.name.replace(_opensaml_req_cookie_string,"")
+	except IndexError as e:
+		oute("EXC: Cookie not found: "+str(e))
+		raise Exception("Auth. failed - check user/pw")
+	# "2023-07-02T16:32:01Z"
+	samlRequest = '<samlp:AuthnRequest xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" AssertionConsumerServiceURL="https://emedia1.bsb-muenchen.de/Shibboleth.sso/SAML2/POST" Destination="https://idp.bsb-muenchen.de/idp/profile/SAML2/Redirect/SSO" ID="'+str(_opensaml_req_cookie_value)+'" IssueInstant="'+str(datetime.utcnow().astimezone())+'" ProtocolBinding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Version="2.0"><saml:Issuer xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">https://emedia1.bsb-muenchen.de/shibboleth</saml:Issuer><samlp:NameIDPolicy AllowCreate="1"/></samlp:AuthnRequest>'
+	#
+	outi("samlRequest: "+samlRequest)
+	samlRequest = base64.b64encode(zlib.compress(samlRequest.encode('utf-8'))[2:-4]).decode('utf-8')
+	samlRequest = urllib.parse.quote(samlRequest, safe='', encoding='utf-8', errors=None)
+	#
+	myUrl = "https://idp.bsb-muenchen.de/idp/profile/SAML2/Redirect/SSO?SAMLRequest=" + samlRequest + "&RelayState=cookie%3A" + str(_opensaml_req_cookie_name)
+	outi("\n\n>>>CALLING: " + myUrl)
+	r = c.post(myUrl, headers=headers, cookies=c.cookies, allow_redirects=True, verify=False)
+	#myUrl = r.url
+	out("############################## >>> forwarded-url: " + r.url + " <<<")
+	outi("r.status_code: " + str(r.status_code))
+	out("c.cookies:\n" + '\n '.join(map(str,c.cookies)))
+	out("r.headers:\n" + '\n '.join('{}: {}'.format(k, v) for k, v in r.headers.items()))
+	out("r.text: " + r.text)
+	if str(r.status_code == "400"):
+		oute("400")
+		return
 	#
 	try:
 		myUrl = 'https://' + [k.domain for k in c.cookies if k.name=='JSESSIONID'][0] + \

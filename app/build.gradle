@@ -1,5 +1,10 @@
-apply plugin: 'com.android.application'
-apply plugin: 'com.chaquo.python'
+plugins {
+    id 'com.android.application'
+    id 'com.chaquo.python'
+}
+
+//apply plugin: 'com.android.application'
+//apply plugin: 'com.chaquo.python'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
@@ -163,8 +168,8 @@ android {
             if( !f2.exists() ) { // check gradle.properties
                 throw new FileNotFoundException("file not found: '"+f2.absolutePath+"'; input: '"+s2+"'")
             }
-            buildPython "/usr/bin/python3.8" // = s2 //project.getProperties().get("python.fullPath.executable")
-            pyc { src bIsReleaseBuild }
+            buildPython "/usr/bin/python3" // = s2 //project.getProperties().get("python.fullPath.executable")
+            pyc { src false }
             pip { install "requests" }
         }
     }

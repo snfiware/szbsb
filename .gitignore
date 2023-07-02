@@ -12,6 +12,7 @@ local.properties
 
 # Gradle generated files
 .gradle/
+secret/
 
 # Signing files
 .signing/
